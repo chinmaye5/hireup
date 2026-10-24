@@ -96,3 +96,19 @@ async def find_interview_by_id_and_company(
     }
     interview_doc = await db["interviews"].find_one(filter_query)
     return interview_doc
+
+
+async def delete_interview_by_id_and_company(
+    db: AsyncDatabase,
+    interview_id: ObjectId,
+    company_id: ObjectId
+) -> bool:
+    """
+    Deletes an interview and all associated attempts belonging to a company.
+    """
+    result = await db["interviews"].delete_one({"_id": interview_id, "company_id": company_id})
+    if result.deleted_count > 0:
+        await db["attempts"].delete_many({"interview_id": interview_id, "company_id": company_id})
+        return True
+    return False
+

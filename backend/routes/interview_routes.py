@@ -77,3 +77,18 @@ async def invite_candidates_route(
         current_user=current_user,
         db=db
     )
+
+
+@router.delete("/{interview_id}")
+async def delete_interview_route(
+    interview_id: str,
+    current_user: dict[str, Any] = Depends(require_company_user),
+    db: AsyncDatabase = Depends(get_db)
+) -> dict[str, str]:
+    """Deletes an interview and all its candidate attempts."""
+    return await interview_controller.delete_interview(
+        interview_id_str=interview_id,
+        current_user=current_user,
+        db=db
+    )
+

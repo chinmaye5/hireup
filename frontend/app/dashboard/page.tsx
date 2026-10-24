@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [timeLimitMin, setTimeLimitMin] = useState(15);
   const [expiresAt, setExpiresAt] = useState("2026-12-31T23:59");
   const [creatingInterview, setCreatingInterview] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Load initial data
   useEffect(() => {
@@ -162,6 +163,23 @@ export default function DashboardPage() {
       setError(err instanceof Error ? err.message : "Failed to create interview");
     } finally {
       setCreatingInterview(false);
+    }
+  }
+
+  async function handleDeleteInterview(interviewId: string) {
+    if (!window.confirm("Are you sure you want to delete this interview and all its candidate attempts?")) {
+      return;
+    }
+    setDeletingId(interviewId);
+    setError(null);
+    try {
+      const token = await getToken();
+      await apiRequest(`/api/interviews/${interviewId}`, "DELETE", token);
+      setInterviews((prev) => prev.filter((i) => i.id !== interviewId));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete interview");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -321,12 +339,22 @@ export default function DashboardPage() {
                         </span>
                       </div>
                     </div>
-                    <Link
-                      href={`/dashboard/interviews/${item.id}`}
-                      className="rounded-md border border-neutral-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 hover:text-neutral-950 transition-colors shadow-sm"
-                    >
-                      View & Invite
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/dashboard/interviews/${item.id}`}
+                        className="rounded-md border border-neutral-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 hover:text-neutral-950 transition-colors shadow-sm"
+                      >
+                        View & Invite
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteInterview(item.id)}
+                        disabled={deletingId === item.id}
+                        className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors shadow-sm disabled:opacity-50"
+                      >
+                        {deletingId === item.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

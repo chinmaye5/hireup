@@ -181,3 +181,34 @@ async def invite_candidates(
     )
 
     return result
+
+
+async def delete_interview(
+    interview_id_str: str,
+    current_user: dict[str, Any],
+    db: AsyncDatabase
+) -> dict[str, str]:
+    """
+    Deletes an interview and all associated attempts belonging to the recruiter's company.
+    """
+    company_id: ObjectId = current_user["company_id"]
+    interview_id = to_object_id(interview_id_str)
+    if interview_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Interview not found"
+        )
+
+    deleted = await interview_model.delete_interview_by_id_and_company(
+        db=db,
+        interview_id=interview_id,
+        company_id=company_id
+    )
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Interview not found"
+        )
+
+    return {"message": "Interview deleted successfully"}
+
