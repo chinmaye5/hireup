@@ -66,7 +66,7 @@ export default function MyInterviewsPage() {
       )}
 
       {attempts.length === 0 ? (
-        <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500">
+        <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-600 shadow-sm">
           No pending interviews found for your verified email address.
         </div>
       ) : (
@@ -74,18 +74,18 @@ export default function MyInterviewsPage() {
           {attempts.map((att) => (
             <div
               key={att.attempt_id}
-              className="rounded-lg border border-neutral-200 bg-white p-5 flex items-center justify-between"
+              className="rounded-lg border border-neutral-200 bg-white p-5 flex items-center justify-between shadow-sm"
             >
               <div>
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wide">
                   {att.company_name}
                 </span>
-                <h3 className="text-lg font-bold text-neutral-900 mt-0.5">
+                <h3 className="text-lg font-bold text-neutral-950 mt-0.5">
                   {att.interview_title}
                 </h3>
-                <p className="text-xs text-neutral-500 mt-1">
+                <p className="text-xs text-neutral-600 mt-1">
                   Time limit: {att.time_limit_min} mins · Status:{" "}
-                  <span className="capitalize font-medium text-neutral-800">
+                  <span className="capitalize font-semibold text-neutral-900">
                     {att.status}
                   </span>{" "}
                   · Expires: {new Date(att.expires_at).toLocaleDateString()}
@@ -96,12 +96,12 @@ export default function MyInterviewsPage() {
                 {att.status === "invited" ? (
                   <Link
                     href={`/interview/${att.attempt_id}`}
-                    className="rounded-md bg-neutral-900 px-4 py-2 text-xs font-medium text-white hover:bg-neutral-800"
+                    className="rounded-md bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-800 shadow-sm"
                   >
                     Start Interview
                   </Link>
                 ) : (
-                  <span className="text-xs text-neutral-400 font-medium capitalize">
+                  <span className="text-xs text-neutral-600 font-semibold capitalize bg-neutral-100 px-2.5 py-1 rounded">
                     {att.status}
                   </span>
                 )}

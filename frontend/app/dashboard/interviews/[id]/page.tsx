@@ -180,9 +180,9 @@ export default function InterviewDetailPage() {
       )}
 
       {/* Invite Candidates Box */}
-      <div className="rounded-lg border border-neutral-200 bg-white p-6">
-        <h2 className="text-base font-bold mb-2">Invite Candidates</h2>
-        <p className="text-xs text-neutral-500 mb-4">
+      <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-bold text-neutral-900 mb-2">Invite Candidates</h2>
+        <p className="text-xs text-neutral-600 mb-4">
           Enter candidate emails (separated by commas or new lines). Each candidate gets a private link.
         </p>
         <form onSubmit={handleInvite} className="flex flex-col gap-3">
@@ -192,12 +192,12 @@ export default function InterviewDetailPage() {
             value={emailsText}
             onChange={(e) => setEmailsText(e.target.value)}
             placeholder="candidate1@example.com&#10;candidate2@example.com"
-            className="w-full rounded-md border border-neutral-300 p-3 font-mono text-xs"
+            className="w-full rounded-md border border-neutral-300 bg-white p-3 font-mono text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900"
           />
           <button
             type="submit"
             disabled={inviting}
-            className="self-start rounded-md bg-neutral-900 px-4 py-2 text-xs text-white font-medium hover:bg-neutral-800 disabled:opacity-50"
+            className="self-start rounded-md bg-neutral-900 px-4 py-2 text-xs text-white font-semibold hover:bg-neutral-800 disabled:opacity-50 shadow-sm"
           >
             {inviting ? "Inviting..." : "Send Invites"}
           </button>
@@ -206,13 +206,13 @@ export default function InterviewDetailPage() {
         {inviteResult && (
           <div className="mt-4 text-xs">
             {inviteResult.created.length > 0 && (
-              <p className="text-green-700">
+              <p className="text-green-800 font-medium">
                 Created {inviteResult.created.length} new invite(s):{" "}
                 {inviteResult.created.join(", ")}
               </p>
             )}
             {inviteResult.skipped.length > 0 && (
-              <p className="text-neutral-500 mt-1">
+              <p className="text-neutral-600 mt-1">
                 Skipped {inviteResult.skipped.length} existing invite(s):{" "}
                 {inviteResult.skipped.join(", ")}
               </p>
@@ -222,15 +222,15 @@ export default function InterviewDetailPage() {
       </div>
 
       {/* Candidate Attempts Table */}
-      <div className="rounded-lg border border-neutral-200 bg-white p-6">
-        <h2 className="text-base font-bold mb-4">Candidate Attempts</h2>
+      <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-bold text-neutral-900 mb-4">Candidate Attempts</h2>
         {interview.attempts.length === 0 ? (
-          <p className="text-sm text-neutral-500">No candidates invited yet.</p>
+          <p className="text-sm text-neutral-600">No candidates invited yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b bg-neutral-50 text-neutral-600">
+                <tr className="border-b border-neutral-200 bg-neutral-100 text-neutral-800 font-semibold">
                   <th className="py-2.5 px-3">Email</th>
                   <th className="py-2.5 px-3">Status</th>
                   <th className="py-2.5 px-3">Score</th>
@@ -240,38 +240,38 @@ export default function InterviewDetailPage() {
               </thead>
               <tbody>
                 {interview.attempts.map((att) => (
-                  <tr key={att.id} className="border-b hover:bg-neutral-50">
-                    <td className="py-3 px-3 font-medium text-neutral-900">{att.email}</td>
+                  <tr key={att.id} className="border-b border-neutral-100 hover:bg-neutral-50">
+                    <td className="py-3 px-3 font-medium text-neutral-950">{att.email}</td>
                     <td className="py-3 px-3">
-                      <span className="capitalize">{att.status}</span>
+                      <span className="capitalize font-medium text-neutral-800">{att.status}</span>
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-3 px-3 font-semibold text-neutral-950">
                       {att.overall_score !== null ? `${att.overall_score} / 10` : "—"}
                     </td>
                     <td className="py-3 px-3">
                       {att.recommendation ? (
-                        <span className="capitalize font-medium">{att.recommendation}</span>
+                        <span className="capitalize font-semibold text-neutral-900">{att.recommendation}</span>
                       ) : (
-                        "—"
+                        <span className="text-neutral-400">—</span>
                       )}
                     </td>
                     <td className="py-3 px-3 flex items-center gap-2">
                       <button
                         onClick={() => copyCandidateLink(att.id)}
-                        className="rounded border border-neutral-300 px-2 py-1 text-neutral-700 hover:bg-neutral-100"
+                        className="rounded border border-neutral-300 bg-white px-2.5 py-1 text-neutral-800 font-medium hover:bg-neutral-100 hover:text-neutral-950 transition-colors shadow-sm"
                       >
                         {copiedId === att.id ? "Copied!" : "Copy Link"}
                       </button>
                       <Link
                         href={`/dashboard/attempts/${att.id}`}
-                        className="rounded border border-neutral-300 px-2 py-1 text-neutral-700 hover:bg-neutral-100"
+                        className="rounded border border-neutral-300 bg-white px-2.5 py-1 text-neutral-800 font-medium hover:bg-neutral-100 hover:text-neutral-950 transition-colors shadow-sm"
                       >
                         View
                       </Link>
                       <button
                         onClick={() => handleReset(att.id)}
                         disabled={resettingId === att.id}
-                        className="rounded border border-red-200 text-red-600 px-2 py-1 hover:bg-red-50 disabled:opacity-50"
+                        className="rounded border border-red-200 bg-red-50 text-red-700 font-medium px-2.5 py-1 hover:bg-red-100 transition-colors shadow-sm disabled:opacity-50"
                       >
                         {resettingId === att.id ? "Resetting..." : "Reset"}
                       </button>

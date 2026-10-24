@@ -179,14 +179,14 @@ export default function DashboardPage() {
 
       {/* State 1: User has no company yet */}
       {!company ? (
-        <div className="rounded-lg border border-neutral-200 bg-white p-6 max-w-lg mx-auto w-full">
-          <h2 className="text-xl font-bold mb-2">Create Your Company</h2>
+        <div className="rounded-lg border border-neutral-200 bg-white p-6 max-w-lg mx-auto w-full shadow-sm">
+          <h2 className="text-xl font-bold text-neutral-900 mb-2">Create Your Company</h2>
           <p className="text-sm text-neutral-600 mb-4">
             You must create a company workspace to create interviews and invite candidates.
           </p>
           <form onSubmit={handleCreateCompany} className="flex flex-col gap-4">
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
+              <label className="block text-sm font-semibold text-neutral-800 mb-1">
                 Company Name
               </label>
               <input
@@ -195,7 +195,7 @@ export default function DashboardPage() {
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="e.g. Acme Inc."
-                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900"
               />
             </div>
             <button
@@ -215,16 +215,16 @@ export default function DashboardPage() {
               <h1 className="text-2xl font-bold text-neutral-950">
                 {company.name} Dashboard
               </h1>
-              <p className="text-sm text-neutral-500">Manage technical interviews</p>
+              <p className="text-sm text-neutral-600">Manage technical interviews</p>
             </div>
           </div>
 
           {/* Create Interview Form */}
-          <div className="rounded-lg border border-neutral-200 bg-white p-6">
-            <h2 className="text-lg font-bold mb-4">Create New Interview</h2>
+          <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-neutral-900 mb-4">Create New Interview</h2>
             <form onSubmit={handleCreateInterview} className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-semibold text-neutral-800 mb-1">
                   Job / Role Title
                 </label>
                 <input
@@ -233,12 +233,12 @@ export default function DashboardPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Senior Backend Engineer"
-                  className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-semibold text-neutral-800 mb-1">
                   Questions (one per line, format: Question text || Rubric)
                 </label>
                 <textarea
@@ -246,13 +246,13 @@ export default function DashboardPage() {
                   rows={4}
                   value={questionsRaw}
                   onChange={(e) => setQuestionsRaw(e.target.value)}
-                  className="w-full rounded-md border border-neutral-300 p-3 font-mono text-xs"
+                  className="w-full rounded-md border border-neutral-300 bg-white p-3 font-mono text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  <label className="block text-sm font-semibold text-neutral-800 mb-1">
                     Time Limit (Minutes)
                   </label>
                   <input
@@ -262,11 +262,11 @@ export default function DashboardPage() {
                     required
                     value={timeLimitMin}
                     onChange={(e) => setTimeLimitMin(Number(e.target.value))}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  <label className="block text-sm font-semibold text-neutral-800 mb-1">
                     Expiration Date & Time
                   </label>
                   <input
@@ -274,7 +274,7 @@ export default function DashboardPage() {
                     required
                     value={expiresAt}
                     onChange={(e) => setExpiresAt(e.target.value)}
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
                   />
                 </div>
               </div>
@@ -291,39 +291,39 @@ export default function DashboardPage() {
 
           {/* List of Interviews */}
           <div>
-            <h2 className="text-lg font-bold mb-4">Interviews</h2>
+            <h2 className="text-lg font-bold text-neutral-900 mb-4">Interviews</h2>
             {interviews.length === 0 ? (
-              <p className="text-sm text-neutral-500">No interviews created yet.</p>
+              <p className="text-sm text-neutral-600">No interviews created yet.</p>
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 {interviews.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-lg border border-neutral-200 bg-white p-5 flex items-center justify-between"
+                    className="rounded-lg border border-neutral-200 bg-white p-5 flex items-center justify-between shadow-sm"
                   >
                     <div>
-                      <h3 className="font-semibold text-neutral-900 text-base">
+                      <h3 className="font-semibold text-neutral-950 text-base">
                         {item.title}
                       </h3>
-                      <p className="text-xs text-neutral-500 mt-1">
+                      <p className="text-xs text-neutral-600 mt-1">
                         Time limit: {item.time_limit_min} mins · Expires:{" "}
                         {new Date(item.expires_at).toLocaleDateString()}
                       </p>
                       <div className="flex gap-2 mt-2 text-xs">
-                        <span className="bg-neutral-100 px-2 py-0.5 rounded">
+                        <span className="bg-neutral-100 text-neutral-800 font-medium px-2 py-0.5 rounded">
                           Invited: {item.status_counts["invited"] || 0}
                         </span>
-                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                        <span className="bg-blue-50 text-blue-800 font-medium px-2 py-0.5 rounded">
                           In Progress: {item.status_counts["in_progress"] || 0}
                         </span>
-                        <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded">
+                        <span className="bg-green-50 text-green-800 font-medium px-2 py-0.5 rounded">
                           Scored: {item.status_counts["scored"] || 0}
                         </span>
                       </div>
                     </div>
                     <Link
                       href={`/dashboard/interviews/${item.id}`}
-                      className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium hover:bg-neutral-50"
+                      className="rounded-md border border-neutral-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 hover:text-neutral-950 transition-colors shadow-sm"
                     >
                       View & Invite
                     </Link>

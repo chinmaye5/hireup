@@ -155,7 +155,7 @@ async def count_attempts_by_status_for_company(
     ]
 
     result_mapping: dict[str, dict[str, int]] = {}
-    cursor = db["attempts"].aggregate(pipeline)
+    cursor = await db["attempts"].aggregate(pipeline)
     async for item in cursor:
         group_id = item["_id"]
         interview_id_str = str(group_id["interview_id"])

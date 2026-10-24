@@ -128,7 +128,7 @@ export default function AttemptDetailPage() {
           <button
             onClick={handleRescore}
             disabled={rescoring}
-            className="rounded-md border border-neutral-300 px-4 py-2 text-xs font-medium hover:bg-neutral-100 disabled:opacity-50"
+            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 hover:text-neutral-950 transition-colors shadow-sm disabled:opacity-50"
           >
             {rescoring ? "Re-scoring with LLM..." : "Re-score Attempt"}
           </button>
@@ -143,42 +143,42 @@ export default function AttemptDetailPage() {
 
       {/* Evaluation Results Section */}
       {attempt.result ? (
-        <div className="rounded-lg border border-neutral-200 bg-white p-6 flex flex-col gap-6">
+        <div className="rounded-lg border border-neutral-200 bg-white p-6 flex flex-col gap-6 shadow-sm">
           <div className="flex items-center justify-between border-b pb-4">
             <div>
               <h2 className="text-lg font-bold text-neutral-900">AI Evaluation</h2>
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-neutral-600 mt-0.5">
                 Recommendation:{" "}
-                <span className="capitalize font-bold text-neutral-900">
+                <span className="capitalize font-bold text-neutral-950">
                   {attempt.result.recommendation}
                 </span>
               </p>
             </div>
             <div className="text-right">
-              <span className="text-3xl font-extrabold text-neutral-900">
+              <span className="text-3xl font-extrabold text-neutral-950">
                 {attempt.result.overall_score}
               </span>
-              <span className="text-neutral-500 text-sm"> / 10</span>
+              <span className="text-neutral-600 text-sm"> / 10</span>
             </div>
           </div>
 
           <div>
-            <h3 className="text-xs font-bold uppercase text-neutral-500 mb-1">Summary</h3>
-            <p className="text-sm text-neutral-800">{attempt.result.summary}</p>
+            <h3 className="text-xs font-bold uppercase text-neutral-700 mb-1">Summary</h3>
+            <p className="text-sm text-neutral-800 leading-relaxed">{attempt.result.summary}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-md bg-green-50 p-4">
-              <h4 className="text-xs font-bold text-green-800 mb-2">Strengths</h4>
-              <ul className="list-disc list-inside text-xs text-green-900 space-y-1">
+            <div className="rounded-md bg-green-50 border border-green-200 p-4">
+              <h4 className="text-xs font-bold text-green-900 mb-2">Strengths</h4>
+              <ul className="list-disc list-inside text-xs text-green-950 space-y-1">
                 {attempt.result.strengths.map((str, i) => (
                   <li key={i}>{str}</li>
                 ))}
               </ul>
             </div>
-            <div className="rounded-md bg-amber-50 p-4">
-              <h4 className="text-xs font-bold text-amber-800 mb-2">Areas for Growth</h4>
-              <ul className="list-disc list-inside text-xs text-amber-900 space-y-1">
+            <div className="rounded-md bg-amber-50 border border-amber-200 p-4">
+              <h4 className="text-xs font-bold text-amber-900 mb-2">Areas for Growth</h4>
+              <ul className="list-disc list-inside text-xs text-amber-950 space-y-1">
                 {attempt.result.weaknesses.map((w, i) => (
                   <li key={i}>{w}</li>
                 ))}
@@ -187,24 +187,24 @@ export default function AttemptDetailPage() {
           </div>
 
           <div>
-            <h3 className="text-xs font-bold uppercase text-neutral-500 mb-2">
+            <h3 className="text-xs font-bold uppercase text-neutral-700 mb-2">
               Per-Question Breakdown
             </h3>
             <div className="space-y-3">
               {attempt.result.per_question.map((q) => (
-                <div key={q.question_index} className="border rounded p-3 text-xs">
-                  <div className="flex justify-between font-semibold mb-1">
+                <div key={q.question_index} className="border border-neutral-200 bg-neutral-50 rounded p-3 text-xs">
+                  <div className="flex justify-between font-bold text-neutral-950 mb-1">
                     <span>Question {q.question_index}</span>
-                    <span>{q.score} / 10</span>
+                    <span className="text-neutral-900">{q.score} / 10</span>
                   </div>
-                  <p className="text-neutral-600">{q.notes}</p>
+                  <p className="text-neutral-700 leading-relaxed">{q.notes}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-500">
+        <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
           {attempt.result_error ? (
             <p className="text-red-600">Scoring Error: {attempt.result_error}</p>
           ) : (
@@ -214,10 +214,10 @@ export default function AttemptDetailPage() {
       )}
 
       {/* Full Transcript Section */}
-      <div className="rounded-lg border border-neutral-200 bg-white p-6">
-        <h2 className="text-base font-bold mb-4">Conversation Transcript</h2>
+      <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-bold text-neutral-900 mb-4">Conversation Transcript</h2>
         {attempt.transcript.length === 0 ? (
-          <p className="text-sm text-neutral-500">No messages recorded.</p>
+          <p className="text-sm text-neutral-600">No messages recorded.</p>
         ) : (
           <div className="flex flex-col gap-3">
             {attempt.transcript.map((msg, idx) => (
