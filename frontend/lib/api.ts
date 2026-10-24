@@ -23,6 +23,10 @@ export async function apiRequest<T>(
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
+  } else {
+    // token is null means Clerk session hasn't hydrated yet or user is signed out.
+    // Throw early so the caller sees a clear message instead of a cryptic Clerk error.
+    throw new Error("Not signed in — please refresh the page and try again.");
   }
 
   const options: RequestInit = {

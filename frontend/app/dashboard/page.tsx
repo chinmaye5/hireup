@@ -28,7 +28,7 @@ type InterviewSummary = {
 };
 
 export default function DashboardPage() {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +50,11 @@ export default function DashboardPage() {
 
   // Load initial data
   useEffect(() => {
+    // Wait for Clerk to finish loading before calling getToken().
+    // Without this guard, getToken() returns null on the first render
+    // because the session cookie hasn't been read yet.
+    if (!isLoaded) return;
+
     async function loadData() {
       setLoading(true);
       setError(null);
@@ -74,7 +79,7 @@ export default function DashboardPage() {
     }
 
     loadData();
-  }, [getToken]);
+  }, [getToken, isLoaded]);
 
   async function handleCreateCompany(e: React.FormEvent) {
     e.preventDefault();

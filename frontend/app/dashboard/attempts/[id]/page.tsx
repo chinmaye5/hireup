@@ -46,7 +46,7 @@ type FullAttempt = {
 export default function AttemptDetailPage() {
   const params = useParams();
   const attemptId = params.id as string;
-  const { getToken } = useAuth();
+  const { getToken, isLoaded } = useAuth();
 
   const [attempt, setAttempt] = useState<FullAttempt | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,10 +72,10 @@ export default function AttemptDetailPage() {
   }
 
   useEffect(() => {
-    if (attemptId) {
+    if (isLoaded && attemptId) {
       loadAttempt();
     }
-  }, [attemptId]);
+  }, [attemptId, isLoaded]);
 
   async function handleRescore() {
     setRescoring(true);

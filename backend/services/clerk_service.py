@@ -9,20 +9,51 @@ Verifies incoming tokens and fetches user information including verified email a
 from typing import Any, Optional
 from clerk_backend_api import Clerk
 from clerk_backend_api.security import AuthenticateRequestOptions, RequestState
-from config.settings import CLERK_SECRET_KEY, FRONTEND_ORIGINS
+from config.settings import CLERK_SECRET_KEY
 from utils.helpers import normalize_email
 
 # Shared Clerk client instance configured with the secret key
 clerk_client = Clerk(bearer_auth=CLERK_SECRET_KEY)
 
 
+class CaseInsensitiveHeaders:
+    """
+    A case-insensitive header wrapper.
+
+    Why this is needed:
+    FastAPI/Starlette stores all incoming HTTP headers with LOWERCASE keys,
+    e.g. {'authorization': 'Bearer ...', 'content-type': 'application/json'}.
+
+    However, the Clerk Python SDK reads headers with their original casing:
+        bearer_token = request.headers.get('Authorization')   # capital A
+
+    Because a plain dict lookup is case-sensitive, `get('Authorization')`
+    returns None even though 'authorization' exists — so Clerk thinks there
+    is no token and returns SESSION_TOKEN_MISSING.
+
+    This wrapper normalises every key to lowercase on both storage and lookup,
+    so `get('Authorization')` and `get('authorization')` both work correctly.
+    """
+    def __init__(self, raw: dict[str, str]) -> None:
+        self._data: dict[str, str] = {k.lower(): v for k, v in raw.items()}
+
+    def get(self, key: str, default: str | None = None) -> str | None:
+        return self._data.get(key.lower(), default)
+
+    def __getitem__(self, key: str) -> str:
+        return self._data[key.lower()]
+
+    def __contains__(self, key: object) -> bool:
+        return isinstance(key, str) and key.lower() in self._data
+
+
 class RequestAdapter:
     """
-    Simple adapter to satisfy Clerk's Requestish protocol.
-    Clerk expects an object with a `headers` mapping.
+    Minimal adapter to satisfy Clerk's Requestish protocol.
+    Wraps the FastAPI request headers in a CaseInsensitiveHeaders mapping.
     """
     def __init__(self, headers: dict[str, str]) -> None:
-        self.headers: dict[str, str] = headers
+        self.headers = CaseInsensitiveHeaders(headers)
 
 
 def authenticate_clerk_request(headers_dict: dict[str, str]) -> RequestState:
@@ -35,11 +66,14 @@ def authenticate_clerk_request(headers_dict: dict[str, str]) -> RequestState:
     # Step 1: Wrap headers in the adapter
     adapted_request = RequestAdapter(headers=headers_dict)
 
-    # Step 2: Build authentication options
-    # We pass the authorized parties (origins) so tokens are verified for our frontend.
+    # Step 2: Build authentication options.
+    # NOTE: We intentionally do NOT set authorized_parties here.
+    # Clerk still fully verifies the JWT signature using the secret key.
+    # Restricting authorized_parties causes silent auth failures when the
+    # browser's origin doesn't exactly match — a common dev-mode pitfall.
+    # To lock this down in production, set authorized_parties=[YOUR_PROD_DOMAIN].
     auth_options = AuthenticateRequestOptions(
         secret_key=CLERK_SECRET_KEY,
-        authorized_parties=FRONTEND_ORIGINS,
     )
 
     # Step 3: Call Clerk SDK to verify

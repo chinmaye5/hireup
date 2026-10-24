@@ -16,13 +16,15 @@ type CandidateAttempt = {
 };
 
 export default function MyInterviewsPage() {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded } = useAuth();
 
   const [attempts, setAttempts] = useState<CandidateAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isLoaded) return;
+
     async function loadMyAttempts() {
       setLoading(true);
       setError(null);
@@ -42,7 +44,7 @@ export default function MyInterviewsPage() {
     }
 
     loadMyAttempts();
-  }, [getToken]);
+  }, [getToken, isLoaded]);
 
   if (loading) {
     return <p className="py-12 text-center text-neutral-500">Loading your interviews...</p>;

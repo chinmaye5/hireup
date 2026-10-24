@@ -41,7 +41,7 @@ type InviteResponse = {
 export default function InterviewDetailPage() {
   const params = useParams();
   const interviewId = params.id as string;
-  const { getToken } = useAuth();
+  const { getToken, isLoaded } = useAuth();
 
   const [interview, setInterview] = useState<InterviewDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,10 +77,10 @@ export default function InterviewDetailPage() {
   }
 
   useEffect(() => {
-    if (interviewId) {
+    if (isLoaded && interviewId) {
       loadInterview();
     }
-  }, [interviewId]);
+  }, [interviewId, isLoaded]);
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
