@@ -469,3 +469,20 @@ async def save_attempt_score(
     if updated_doc is None:
         raise RuntimeError("Failed to retrieve attempt after saving score")
     return updated_doc
+
+
+async def delete_attempt_by_id_and_company(
+    db: AsyncDatabase,
+    attempt_id: ObjectId,
+    company_id: ObjectId
+) -> bool:
+    """
+    Deletes a candidate attempt document strictly scoped to the recruiter's company.
+    """
+    filter_query: dict[str, Any] = {
+        "_id": attempt_id,
+        "company_id": company_id,
+    }
+    result = await db["attempts"].delete_one(filter_query)
+    return result.deleted_count > 0
+

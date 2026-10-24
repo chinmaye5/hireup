@@ -55,6 +55,9 @@ export default function InterviewDetailPage() {
   // Reset attempt state
   const [resettingId, setResettingId] = useState<string | null>(null);
 
+  // Delete attempt state
+  const [deletingAttemptId, setDeletingAttemptId] = useState<string | null>(null);
+
   // Copy status
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -134,6 +137,29 @@ export default function InterviewDetailPage() {
       setError(err instanceof Error ? err.message : "Failed to reset attempt");
     } finally {
       setResettingId(null);
+    }
+  }
+
+  async function handleDeleteAttempt(attemptId: string, email: string) {
+    if (!confirm(`Are you sure you want to remove the interview invite for ${email}?`)) {
+      return;
+    }
+    setDeletingAttemptId(attemptId);
+    setError(null);
+    try {
+      const token = await getToken();
+      await apiRequest(`/api/attempts/${attemptId}`, "DELETE", token);
+      setInterview((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          attempts: prev.attempts.filter((a) => a.id !== attemptId),
+        };
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete candidate invite");
+    } finally {
+      setDeletingAttemptId(null);
     }
   }
 
@@ -259,6 +285,7 @@ export default function InterviewDetailPage() {
                       <button
                         onClick={() => copyCandidateLink(att.id)}
                         className="rounded border border-neutral-300 bg-white px-2.5 py-1 text-neutral-800 font-medium hover:bg-neutral-100 hover:text-neutral-950 transition-colors shadow-sm"
+                        title="Copy candidate invite link"
                       >
                         {copiedId === att.id ? "Copied!" : "Copy Link"}
                       </button>
@@ -271,9 +298,18 @@ export default function InterviewDetailPage() {
                       <button
                         onClick={() => handleReset(att.id)}
                         disabled={resettingId === att.id}
-                        className="rounded border border-red-200 bg-red-50 text-red-700 font-medium px-2.5 py-1 hover:bg-red-100 transition-colors shadow-sm disabled:opacity-50"
+                        className="rounded border border-amber-200 bg-amber-50 text-amber-800 font-medium px-2.5 py-1 hover:bg-amber-100 transition-colors shadow-sm disabled:opacity-50"
+                        title="Reset attempt so candidate can retry"
                       >
                         {resettingId === att.id ? "Resetting..." : "Reset"}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAttempt(att.id, att.email)}
+                        disabled={deletingAttemptId === att.id}
+                        className="rounded border border-red-200 bg-red-50 text-red-700 font-medium px-2.5 py-1 hover:bg-red-100 transition-colors shadow-sm disabled:opacity-50"
+                        title="Delete candidate invite"
+                      >
+                        {deletingAttemptId === att.id ? "Deleting..." : "Delete"}
                       </button>
                     </td>
                   </tr>

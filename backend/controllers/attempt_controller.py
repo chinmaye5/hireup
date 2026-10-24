@@ -143,3 +143,35 @@ async def rescore_attempt(
     from services import scoring_service
     scored_doc = await scoring_service.score_attempt(db, attempt_id)
     return serialize_attempt_detail(scored_doc)
+
+
+async def delete_attempt(
+    attempt_id_str: str,
+    current_user: dict[str, Any],
+    db: AsyncDatabase
+) -> dict[str, str]:
+    """
+    Deletes an invited candidate attempt (e.g. if the recruiter accidentally added the wrong email).
+    Guarantees tenant isolation: returns 404 if not found in current company.
+    """
+    company_id: ObjectId = current_user["company_id"]
+    attempt_id = to_object_id(attempt_id_str)
+    if attempt_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Candidate invite not found"
+        )
+
+    deleted = await attempt_model.delete_attempt_by_id_and_company(
+        db=db,
+        attempt_id=attempt_id,
+        company_id=company_id
+    )
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Candidate invite not found"
+        )
+
+    return {"message": "Candidate invite deleted successfully"}
+

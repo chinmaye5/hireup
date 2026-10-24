@@ -60,3 +60,18 @@ async def reset_attempt_route(
         current_user=current_user,
         db=db
     )
+
+
+@router.delete("/{attempt_id}")
+async def delete_attempt_route(
+    attempt_id: str,
+    current_user: dict[str, Any] = Depends(require_company_user),
+    db: AsyncDatabase = Depends(get_db)
+) -> dict[str, str]:
+    """Deletes an invited candidate attempt (e.g. if the wrong email was added)."""
+    return await attempt_controller.delete_attempt(
+        attempt_id_str=attempt_id,
+        current_user=current_user,
+        db=db
+    )
+
