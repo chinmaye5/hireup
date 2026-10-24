@@ -11,9 +11,10 @@ const API_BASE_URL: string =
 
 export async function apiRequest<T>(
   path: string,
-  method: "GET" | "POST" = "GET",
+  method: "GET" | "POST" | "DELETE" = "GET",
   token: string | null = null,
-  body: unknown = null
+  body: unknown = null,
+  requireAuth: boolean = true
 ): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
 
@@ -23,7 +24,7 @@ export async function apiRequest<T>(
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
-  } else {
+  } else if (requireAuth) {
     // token is null means Clerk session hasn't hydrated yet or user is signed out.
     // Throw early so the caller sees a clear message instead of a cryptic Clerk error.
     throw new Error("Not signed in — please refresh the page and try again.");

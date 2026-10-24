@@ -32,6 +32,22 @@ async def get_my_attempts_route(
     )
 
 
+@router.get("/attempts/{attempt_id}/public-info")
+async def get_attempt_public_info_route(
+    attempt_id: str,
+    db: AsyncDatabase = Depends(get_db)
+) -> dict[str, Any]:
+    """
+    Public metadata endpoint for interview landing page.
+    Returns safe summary (company, role, duration, expiry, invited email)
+    before candidate starts or logs in.
+    """
+    return await candidate_controller.get_attempt_public_info(
+        attempt_id_str=attempt_id,
+        db=db
+    )
+
+
 @router.post("/attempts/{attempt_id}/start")
 async def start_attempt_route(
     attempt_id: str,
@@ -47,3 +63,4 @@ async def start_attempt_route(
         current_user=current_user,
         db=db
     )
+

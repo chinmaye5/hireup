@@ -15,7 +15,7 @@ from config.settings import LIVEKIT_URL
 from models import attempt_model
 from services import livekit_service
 from utils.constants import STATUS_INVITED
-from utils.helpers import to_object_id, now_utc, normalize_email
+from utils.helpers import to_object_id, now_utc, normalize_email, is_past_date
 from utils.serializers import serialize_id, serialize_datetime
 
 
@@ -122,8 +122,7 @@ async def start_attempt(
 
         # Check if the attempt is expired
         expires_at = diagnostic_doc.get("expires_at")
-        current_time = now_utc()
-        if expires_at is not None and current_time >= expires_at:
+        if is_past_date(expires_at):
             raise HTTPException(
                 status_code=status.HTTP_410_GONE,
                 detail="This interview link has expired"
@@ -168,3 +167,42 @@ async def start_attempt(
         "url": LIVEKIT_URL,
         "room_name": room_name,
     }
+
+
+async def get_attempt_public_info(
+    attempt_id_str: str,
+    db: AsyncDatabase
+) -> dict[str, Any]:
+    """
+    Public metadata fetch for interview candidate landing page.
+    Returns safe preview info (company, role, duration, expiry, target email)
+    before candidate starts or logs in.
+    """
+    attempt_id = to_object_id(attempt_id_str)
+    if attempt_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Interview not found"
+        )
+
+    attempt_doc = await attempt_model.find_attempt_by_id_only(db, attempt_id)
+    if attempt_doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Interview not found"
+        )
+
+    expires_at = attempt_doc.get("expires_at")
+    is_expired = is_past_date(expires_at)
+
+    return {
+        "attempt_id": serialize_id(attempt_doc["_id"]),
+        "company_name": attempt_doc.get("company_name", "Hiring Company"),
+        "interview_title": attempt_doc.get("interview_title", "Technical Interview"),
+        "time_limit_min": attempt_doc.get("time_limit_min", 15),
+        "expires_at": serialize_datetime(expires_at),
+        "candidate_email": attempt_doc.get("email", ""),
+        "status": attempt_doc.get("status", "invited"),
+        "is_expired": is_expired,
+    }
+
