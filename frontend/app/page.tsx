@@ -1,107 +1,44 @@
 "use client";
 
-import "@livekit/components-styles";
-import { useState } from "react";
-import { Track } from "livekit-client";
-import {
-  BarVisualizer,
-  ControlBar,
-  LiveKitRoom,
-  RoomAudioRenderer,
-  useLocalParticipant,
-  useVoiceAssistant,
-} from "@livekit/components-react";
+import Link from "next/link";
+import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
-const TOKEN_URL = "http://localhost:8000/api/token";
-
-type TokenResponse = { token: string; url: string };
-
-function InterviewView() {
-  // Agent side: state ("listening" | "thinking" | "speaking") + its audio track
-  const { state, audioTrack } = useVoiceAssistant();
-
-  // Candidate side: your own microphone track
-  const { localParticipant, microphoneTrack } = useLocalParticipant();
-  const micRef = microphoneTrack
-    ? {
-      participant: localParticipant,
-      publication: microphoneTrack,
-      source: Track.Source.Microphone,
-    }
-    : undefined;
-
+export default function HomePage() {
   return (
-    <div className="flex w-full flex-col items-center gap-8">
-      <section className="w-full">
-        <p className="mb-2 text-sm text-neutral-500">
-          Interviewer · <span className="font-medium text-neutral-800">{state}</span>
-        </p>
-        <div className="h-24 w-full">
-          <BarVisualizer state={state} barCount={7} trackRef={audioTrack} />
-        </div>
-      </section>
+    <main className="py-16 text-center max-w-2xl mx-auto flex flex-col items-center gap-6">
+      <h1 className="text-4xl font-bold tracking-tight text-neutral-950">
+        AI Voice Technical Interviewer
+      </h1>
+      <p className="text-lg text-neutral-600">
+        HireUp helps companies conduct low-latency, real-time voice interviews
+        powered by LiveKit WebRTC and AI. Candidates receive a unique link and
+        interview live through voice.
+      </p>
 
-      <section className="w-full">
-        <p className="mb-2 text-sm text-neutral-500">You</p>
-        <div className="h-16 w-full">
-          <BarVisualizer barCount={7} trackRef={micRef} />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-export default function Page() {
-  const [conn, setConn] = useState<TokenResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function startInterview() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(TOKEN_URL);
-      if (!res.ok) throw new Error(`Token request failed (${res.status})`);
-      setConn((await res.json()) as TokenResponse);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not reach the backend");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 p-6">
-      {!conn ? (
-        <>
-          <button
-            onClick={startInterview}
-            disabled={loading}
-            className="rounded-md bg-neutral-900 px-6 py-3 text-white disabled:opacity-50"
+      <div className="flex gap-4 mt-4">
+        <SignedIn>
+          <Link
+            href="/dashboard"
+            className="rounded-md bg-neutral-900 px-5 py-2.5 text-white font-medium hover:bg-neutral-800"
           >
-            {loading ? "Connecting..." : "Start Interview Call"}
-          </button>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-        </>
-      ) : (
-        <LiveKitRoom
-          token={conn.token}
-          serverUrl={conn.url}
-          connect={true}
-          audio={true}
-          video={false}
-          onDisconnected={() => setConn(null)}
-          data-lk-theme="default"
-          className="flex w-full flex-col items-center gap-8"
-        >
-          <InterviewView />
-          {/* Without this, the agent's voice is never played in the browser */}
-          <RoomAudioRenderer />
-          <ControlBar
-            controls={{ microphone: true, leave: true, camera: false, screenShare: false, chat: false, settings: false }}
-          />
-        </LiveKitRoom>
-      )}
+            Go to Recruiter Dashboard
+          </Link>
+          <Link
+            href="/my-interviews"
+            className="rounded-md border border-neutral-300 px-5 py-2.5 text-neutral-800 font-medium hover:bg-neutral-100"
+          >
+            View My Interviews
+          </Link>
+        </SignedIn>
+
+        <SignedOut>
+          <SignInButton mode="modal">
+            <button className="rounded-md bg-neutral-900 px-6 py-2.5 text-white font-medium hover:bg-neutral-800">
+              Get Started (Sign In)
+            </button>
+          </SignInButton>
+        </SignedOut>
+      </div>
     </main>
   );
 }

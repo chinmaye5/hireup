@@ -21,9 +21,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from livekit import api
-
-from config.settings import FRONTEND_ORIGINS, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_URL
+from config.settings import FRONTEND_ORIGINS
 from config.db import init_db, close_db
 from routes.me_routes import router as me_router
 from routes.company_routes import router as company_router
@@ -31,9 +29,6 @@ from routes.interview_routes import router as interview_router
 from routes.attempt_routes import router as attempt_router
 from routes.candidate_routes import router as candidate_router
 
-# Legacy parameters kept during transition until start endpoint replaces it in Phase 3
-ROOM_NAME: str = "ai-interview-room"
-IDENTITY: str = "candidate-test"
 HERE: str = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -86,19 +81,3 @@ app.include_router(company_router, prefix="/api")
 app.include_router(interview_router, prefix="/api")
 app.include_router(attempt_router, prefix="/api")
 app.include_router(candidate_router, prefix="/api")
-
-
-# Legacy token endpoint kept for backwards compatibility until Phase 3
-@app.get("/api/token", tags=["Legacy"])
-async def get_token():
-    token = (
-        api.AccessToken(
-            LIVEKIT_API_KEY,
-            LIVEKIT_API_SECRET,
-        )
-        .with_identity(IDENTITY)
-        .with_name("Candidate")
-        .with_grants(api.VideoGrants(room_join=True, room=ROOM_NAME))
-        .to_jwt()
-    )
-    return {"token": token, "url": LIVEKIT_URL}
