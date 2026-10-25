@@ -28,9 +28,10 @@ export default function RootLayout({
     <ClerkProvider publishableKey={clerkPubKey}>
       <html lang="en" className="h-full">
         <body className="min-h-full flex flex-col bg-neutral-50 text-neutral-900 font-sans">
-          <header className="border-b border-neutral-200 bg-white">
-            <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-              <Link href="/" className="font-bold text-lg text-neutral-900">
+          <header className="border-b border-neutral-200 bg-white sticky top-0 z-10">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
+              <Link href="/" className="font-bold text-lg text-neutral-900 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-neutral-900 text-white flex items-center justify-center font-bold text-sm">H</span>
                 HireUp
               </Link>
               <nav className="flex items-center gap-4 text-sm">
@@ -64,7 +65,7 @@ export default function RootLayout({
               </nav>
             </div>
           </header>
-          <div className="flex-1 max-w-5xl w-full mx-auto p-4">{children}</div>
+          <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">{children}</div>
         </body>
       </html>
     </ClerkProvider>
