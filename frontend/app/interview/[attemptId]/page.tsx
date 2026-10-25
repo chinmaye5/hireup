@@ -133,6 +133,25 @@ export default function InterviewRoomPage() {
 
   // Suppress harmless LiveKit DataChannel teardown errors that fire
   // every time a room closes (LOSSY, RELIABLE, DATA_TRACK_LOSSY channels).
+  // The LiveKit SDK logs these internally via console.error BEFORE our
+  // onError handler runs, so we intercept them at the console level too.
+  useEffect(() => {
+    const originalConsoleError = console.error;
+    console.error = (...args: unknown[]) => {
+      const text = args.map(String).join(" ");
+      const isDataChannelNoise =
+        text.includes("User-Initiated Abort") ||
+        text.includes("closed unexpectedly") ||
+        text.includes("DataChannel error");
+      if (!isDataChannelNoise) {
+        originalConsoleError.apply(console, args);
+      }
+    };
+    return () => {
+      console.error = originalConsoleError;
+    };
+  }, []);
+
   const handleRoomError = useCallback((error: Error) => {
     const msg = error?.message || "";
     const isDataChannelTeardown =

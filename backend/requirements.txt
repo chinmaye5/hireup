@@ -6,3 +6,4 @@ livekit-agents
 livekit-plugins-groq
 livekit-plugins-deepgram
 livekit-plugins-silero
+pymongo

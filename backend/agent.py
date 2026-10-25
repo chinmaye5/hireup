@@ -76,7 +76,11 @@ server = AgentServer(
 
 def prewarm(proc: JobProcess) -> None:
     """Preloads Silero VAD into process memory before any call arrives."""
-    proc.userdata["vad"] = silero.VAD.load()
+    proc.userdata["vad"] = silero.VAD.load(
+        min_silence_duration=0.35,   # React faster after candidate stops speaking (default 0.55)
+        min_speech_duration=0.05,    # Don't trigger on noise bursts
+        activation_threshold=0.5,    # Standard sensitivity
+    )
 
 
 server.setup_fnc = prewarm
@@ -138,23 +142,47 @@ async def entrypoint(ctx: JobContext) -> None:
             super().__init__(instructions=instructions_text)
 
     # Step 5: Configure voice pipeline session
+    #
+    # Tuning notes:
+    # - TTS: aura-2-athena-en = clear, professional voice at 48kHz
+    # - Endpointing: min 0.8s gives the candidate time to pause and continue;
+    #   max 5.0s accommodates thinking pauses on hard questions
+    # - min_consecutive_speech_delay: 1.2s gap between agent utterances
+    #   so acknowledgement and next question don't run together
     session = AgentSession(
         vad=ctx.proc.userdata["vad"],
         stt=groq.STT(model="whisper-large-v3-turbo", language="en"),
-        llm=groq.LLM(model=INTERVIEWER_LLM_MODEL, reasoning_effort="low"),
-        tts=deepgram.TTS(model="aura-2-andromeda-en"),
+        llm=groq.LLM(model=INTERVIEWER_LLM_MODEL),
+        tts=deepgram.TTS(
+            model="aura-2-athena-en",    # Clearer, deeper voice for interviewer persona
+            sample_rate=48000,           # 48kHz for higher audio fidelity (default 24kHz)
+            encoding="linear16",         # Uncompressed PCM for best quality
+        ),
+        min_endpointing_delay=0.8,       # Wait 0.8s of silence before assuming candidate is done
+        max_endpointing_delay=5.0,       # Allow up to 5s thinking pauses on hard questions
+        min_consecutive_speech_delay=1.2, # 1.2s gap between agent utterances (natural pacing)
     )
 
     # State tracking variables
     candidate_answer_count = 0
     interviewer_question_count = 0  # tracks how many questions the interviewer has asked
+    waiting_for_answer = False      # True after interviewer asks, False after first candidate segment
     interview_completed = False
     time_limit_task: Optional[asyncio.Task] = None
     transcript_tasks: set[asyncio.Task] = set()  # track transcript save tasks
 
     # Step 6: Listen for conversation items to save transcripts in real-time
+    #
+    # IMPORTANT: A candidate may speak in multiple speech segments for a single
+    # answer (e.g. pausing to think mid-sentence). Each segment fires a separate
+    # 'conversation_item_added' event.  We must count ONE answer per question,
+    # not one per speech segment.  The `waiting_for_answer` flag handles this:
+    #   - Set to True when the interviewer speaks (asks a question)
+    #   - Set to False on the FIRST candidate segment that follows
+    #   - Only that first segment increments candidate_answer_count
     def on_conversation_item_added(event: Any) -> None:
-        nonlocal candidate_answer_count, interviewer_question_count, interview_completed
+        nonlocal candidate_answer_count, interviewer_question_count
+        nonlocal waiting_for_answer, interview_completed
 
         item = getattr(event, "item", None)
         if item is None:
@@ -181,21 +209,41 @@ async def entrypoint(ctx: JobContext) -> None:
         transcript_tasks.add(task)
         task.add_done_callback(transcript_tasks.discard)
 
-        # Track interviewer questions (first greeting+Q1, then subsequent questions)
         if role == "interviewer":
             interviewer_question_count += 1
-            # After the greeting+Q1, each interviewer turn is a new question.
-            # When the interviewer has spoken total_questions + 1 times (all Q's + closing),
-            # it's the goodbye message.
-            if candidate_answer_count >= total_questions and interviewer_question_count > total_questions:
-                interview_completed = True
-                logger.info("Interview concluding. Shutting down session with drain.")
-                session.shutdown(drain=True)
+            waiting_for_answer = True  # expect the next candidate speech to be an answer
+            logger.info("Interviewer turn %d / %d", interviewer_question_count, total_questions + 1)
 
-        # Count candidate answers only when a question has been asked
-        elif role == "candidate" and interviewer_question_count > 0:
-            candidate_answer_count += 1
-            logger.info("Candidate answer received: %d / %d", candidate_answer_count, total_questions)
+            # Normal end: all answers received, this interviewer turn is the farewell.
+            if candidate_answer_count >= total_questions:
+                interview_completed = True
+                logger.info("Interview concluding after farewell. Shutting down with drain.")
+                session.shutdown(drain=True)
+                return
+
+            # SAFETY NET: If the LLM went rogue and dumped the farewell early
+            # (e.g. crammed multiple questions + goodbye into one response),
+            # detect it and force a clean shutdown so the call doesn't zombie.
+            farewell_signals = ["goodbye", "wraps up", "wish you the best",
+                                "reach out", "next steps", "conclude the call"]
+            text_lower = clean_text.lower()
+            if any(signal in text_lower for signal in farewell_signals):
+                interview_completed = True
+                logger.warning(
+                    "Farewell detected early (answers %d/%d). Forcing shutdown.",
+                    candidate_answer_count, total_questions,
+                )
+                session.shutdown(drain=True)
+                return
+
+        elif role == "candidate":
+            # Only count the FIRST candidate segment after an interviewer question.
+            # Subsequent segments (candidate continuing their answer) are ignored
+            # for counting purposes but still saved to the transcript above.
+            if waiting_for_answer:
+                waiting_for_answer = False
+                candidate_answer_count += 1
+                logger.info("Candidate answer %d / %d received", candidate_answer_count, total_questions)
 
     session.on("conversation_item_added", on_conversation_item_added)
 
@@ -258,11 +306,12 @@ async def entrypoint(ctx: JobContext) -> None:
         room_options=room_io.RoomOptions(delete_room_on_close=True),
     )
 
-    # Step 10: Agent speaks first: Greeting + Question 1
+    # Step 10: Agent speaks first: Introduction + Question 1
     await session.generate_reply(
         instructions=(
-            f"Greet the candidate in one concise sentence representing {company_name}, "
-            "then ask Question 1."
+            f"Welcome the candidate warmly. Introduce yourself as the AI interviewer from {company_name}. "
+            f"Tell them this interview is for the {interview_title} position and there will be {total_questions} questions. "
+            "Encourage them to take their time. Then ask Question 1."
         )
     )
 
