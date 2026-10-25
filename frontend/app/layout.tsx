@@ -8,6 +8,7 @@ import {
   UserButton,
 } from "@clerk/nextjs";
 import Link from "next/link";
+import ThemeToggle from "@/components/ThemeToggle";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -26,15 +27,18 @@ export default function RootLayout({
 
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
-      <html lang="en" className="h-full">
-        <body className="min-h-full flex flex-col bg-neutral-50 text-neutral-900 font-sans">
+      <html lang="en" className="h-full" suppressHydrationWarning>
+        <body
+          className="min-h-full flex flex-col bg-neutral-50 text-neutral-900 font-sans"
+          suppressHydrationWarning
+        >
           <header className="border-b border-neutral-200 bg-white sticky top-0 z-10">
             <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
               <Link href="/" className="font-bold text-lg text-neutral-900 flex items-center gap-2">
                 <span className="w-8 h-8 rounded-lg bg-neutral-900 text-white flex items-center justify-center font-bold text-sm">H</span>
                 HireUp
               </Link>
-              <nav className="flex items-center gap-4 text-sm">
+              <nav className="flex items-center gap-3 text-sm">
                 <SignedIn>
                   <Link
                     href="/dashboard"
@@ -48,9 +52,11 @@ export default function RootLayout({
                   >
                     My Interviews
                   </Link>
+                  <ThemeToggle />
                   <UserButton />
                 </SignedIn>
                 <SignedOut>
+                  <ThemeToggle />
                   <SignInButton mode="modal">
                     <button className="text-neutral-700 hover:text-neutral-900 font-medium">
                       Sign In
