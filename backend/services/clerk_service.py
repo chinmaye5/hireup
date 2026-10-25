@@ -9,11 +9,19 @@ Verifies incoming tokens and fetches user information including verified email a
 from typing import Any, Optional
 from clerk_backend_api import Clerk
 from clerk_backend_api.security import AuthenticateRequestOptions, RequestState
-from config.settings import CLERK_SECRET_KEY
+from config.settings import CLERK_SECRET_KEY, FRONTEND_ORIGINS
 from utils.helpers import normalize_email
 
 # Shared Clerk client instance configured with the secret key
 clerk_client = Clerk(bearer_auth=CLERK_SECRET_KEY)
+
+# Build the list of authorized parties (origins) for JWT validation.
+# Ensure localhost variants are always included in dev mode.
+_AUTHORIZED_PARTIES: list[str] = list(set([
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    *FRONTEND_ORIGINS,
+]))
 
 
 class CaseInsensitiveHeaders:
@@ -66,14 +74,13 @@ def authenticate_clerk_request(headers_dict: dict[str, str]) -> RequestState:
     # Step 1: Wrap headers in the adapter
     adapted_request = RequestAdapter(headers=headers_dict)
 
-    # Step 2: Build authentication options.
-    # NOTE: We intentionally do NOT set authorized_parties here.
-    # Clerk still fully verifies the JWT signature using the secret key.
-    # Restricting authorized_parties causes silent auth failures when the
-    # browser's origin doesn't exactly match — a common dev-mode pitfall.
-    # To lock this down in production, set authorized_parties=[YOUR_PROD_DOMAIN].
+    # Step 2: Build authentication options with authorized_parties.
+    # This ensures Clerk rejects tokens whose `azp` claim doesn't match
+    # a known origin. Make sure FRONTEND_ORIGINS includes your production
+    # domain(s) when deploying.
     auth_options = AuthenticateRequestOptions(
         secret_key=CLERK_SECRET_KEY,
+        authorized_parties=_AUTHORIZED_PARTIES,
     )
 
     # Step 3: Call Clerk SDK to verify
@@ -121,14 +128,15 @@ async def fetch_clerk_user_info(clerk_user_id: str) -> dict[str, Any]:
         raw_address = email_obj.email_address
         cleaned_address = normalize_email(raw_address)
 
-        # Check if email is verified
+        # Check if email is verified (exact match, not substring)
         is_verified = False
         verification_obj = email_obj.verification
         if verification_obj is not None:
-            # Otp or OAuth verification status
-            status_val = getattr(verification_obj, "status", None)
-            status_str = str(status_val)
-            if "verified" in status_str.lower():
+            status_value = getattr(verification_obj, "status", None)
+            # Clerk SDK may return an enum-like object with a .value attribute
+            if hasattr(status_value, "value"):
+                status_value = status_value.value
+            if status_value == "verified":
                 is_verified = True
 
         if is_verified:
@@ -139,11 +147,9 @@ async def fetch_clerk_user_info(clerk_user_id: str) -> dict[str, Any]:
         if email_obj.id == primary_email_id:
             primary_email = cleaned_address
 
-    # Fallback if primary_email was not explicitly marked verified
+    # If no primary email was identified, use the first verified email
     if len(primary_email) == 0 and len(verified_emails) > 0:
         primary_email = verified_emails[0]
-    elif len(primary_email) > 0 and primary_email not in verified_emails:
-        verified_emails.append(primary_email)
 
     result_data: dict[str, Any] = {
         "name": name,

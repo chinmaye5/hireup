@@ -141,18 +141,20 @@ async def entrypoint(ctx: JobContext) -> None:
     session = AgentSession(
         vad=ctx.proc.userdata["vad"],
         stt=groq.STT(model="whisper-large-v3-turbo", language="en"),
-        llm=groq.LLM(model=INTERVIEWER_LLM_MODEL),
+        llm=groq.LLM(model=INTERVIEWER_LLM_MODEL, reasoning_effort="low"),
         tts=deepgram.TTS(model="aura-2-andromeda-en"),
     )
 
     # State tracking variables
     candidate_answer_count = 0
+    interviewer_question_count = 0  # tracks how many questions the interviewer has asked
     interview_completed = False
     time_limit_task: Optional[asyncio.Task] = None
+    transcript_tasks: set[asyncio.Task] = set()  # track transcript save tasks
 
     # Step 6: Listen for conversation items to save transcripts in real-time
     def on_conversation_item_added(event: Any) -> None:
-        nonlocal candidate_answer_count, interview_completed
+        nonlocal candidate_answer_count, interviewer_question_count, interview_completed
 
         item = getattr(event, "item", None)
         if item is None:
@@ -167,8 +169,8 @@ async def entrypoint(ctx: JobContext) -> None:
         if len(clean_text) == 0:
             return
 
-        # Fire-and-forget task to push transcript item to MongoDB immediately
-        asyncio.create_task(
+        # Track transcript save task so we can await it on shutdown
+        task = asyncio.create_task(
             attempt_model.append_transcript_message(
                 db=db,
                 attempt_id=attempt_id,
@@ -176,17 +178,24 @@ async def entrypoint(ctx: JobContext) -> None:
                 text=clean_text,
             )
         )
+        transcript_tasks.add(task)
+        task.add_done_callback(transcript_tasks.discard)
 
-        # Count candidate answers
-        if role == "candidate":
-            candidate_answer_count = candidate_answer_count + 1
+        # Track interviewer questions (first greeting+Q1, then subsequent questions)
+        if role == "interviewer":
+            interviewer_question_count += 1
+            # After the greeting+Q1, each interviewer turn is a new question.
+            # When the interviewer has spoken total_questions + 1 times (all Q's + closing),
+            # it's the goodbye message.
+            if candidate_answer_count >= total_questions and interviewer_question_count > total_questions:
+                interview_completed = True
+                logger.info("Interview concluding. Shutting down session with drain.")
+                session.shutdown(drain=True)
+
+        # Count candidate answers only when a question has been asked
+        elif role == "candidate" and interviewer_question_count > 0:
+            candidate_answer_count += 1
             logger.info("Candidate answer received: %d / %d", candidate_answer_count, total_questions)
-
-        # If candidate answered all questions, the NEXT interviewer speech is the closing goodbye
-        elif role == "interviewer" and candidate_answer_count >= total_questions:
-            interview_completed = True
-            logger.info("Interview concluding. Shutting down session with drain.")
-            session.shutdown(drain=True)
 
     session.on("conversation_item_added", on_conversation_item_added)
 
@@ -204,6 +213,12 @@ async def entrypoint(ctx: JobContext) -> None:
 
     # Step 8: Shutdown callback to finalize status and trigger scoring
     async def on_shutdown() -> None:
+        # Await all pending transcript saves so the last answer isn't lost
+        pending = [t for t in transcript_tasks if not t.done()]
+        if pending:
+            logger.info("Awaiting %d pending transcript save(s)...", len(pending))
+            await asyncio.gather(*pending, return_exceptions=True)
+
         if time_limit_task is not None and not time_limit_task.done():
             time_limit_task.cancel()
 

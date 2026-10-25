@@ -1,7 +1,7 @@
 "use client";
 
 import "@livekit/components-styles";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAuth, useUser, SignInButton, SignOutButton } from "@clerk/nextjs";
 import { Track } from "livekit-client";
@@ -126,10 +126,22 @@ export default function InterviewRoomPage() {
     }
   }
 
-  function handleDisconnect() {
+  const handleDisconnect = useCallback(() => {
     setConn(null);
     setIsFinished(true);
-  }
+  }, []);
+
+  // Suppress harmless LiveKit DataChannel teardown errors that fire
+  // every time a room closes (LOSSY, RELIABLE, DATA_TRACK_LOSSY channels).
+  const handleRoomError = useCallback((error: Error) => {
+    const msg = error?.message || "";
+    const isDataChannelTeardown =
+      msg.includes("User-Initiated Abort") ||
+      msg.includes("closed unexpectedly");
+    if (!isDataChannelTeardown) {
+      console.error("LiveKit room error:", error);
+    }
+  }, []);
 
   // Check whether signed-in user's email matches the candidate_email
   const userEmails = user?.emailAddresses.map((e) => e.emailAddress.toLowerCase()) || [];
@@ -294,6 +306,7 @@ export default function InterviewRoomPage() {
           audio={true}
           video={false}
           onDisconnected={handleDisconnect}
+          onError={handleRoomError}
           data-lk-theme="default"
           className="flex w-full flex-col items-center gap-8"
         >
