@@ -56,7 +56,7 @@ from config.settings import (
 from models import attempt_model
 from services import scoring_service
 from utils.constants import STATUS_IN_PROGRESS, STATUS_COMPLETED, STATUS_ABANDONED
-from utils.helpers import to_object_id
+from utils.helpers import to_object_id, now_utc
 from utils.interviewer_prompt import build_interviewer_instructions
 
 # The agents CLI does not load .env on its own.
@@ -169,7 +169,9 @@ async def entrypoint(ctx: JobContext) -> None:
     waiting_for_answer = False      # True after interviewer asks, False after first candidate segment
     interview_completed = False
     time_limit_task: Optional[asyncio.Task] = None
+    heartbeat_task: Optional[asyncio.Task] = None  # periodic status check
     transcript_tasks: set[asyncio.Task] = set()  # track transcript save tasks
+    last_activity_time = asyncio.get_event_loop().time()  # track when last conversation item was added
 
     # Step 6: Listen for conversation items to save transcripts in real-time
     #
@@ -182,7 +184,7 @@ async def entrypoint(ctx: JobContext) -> None:
     #   - Only that first segment increments candidate_answer_count
     def on_conversation_item_added(event: Any) -> None:
         nonlocal candidate_answer_count, interviewer_question_count
-        nonlocal waiting_for_answer, interview_completed
+        nonlocal waiting_for_answer, interview_completed, last_activity_time
 
         item = getattr(event, "item", None)
         if item is None:
@@ -196,6 +198,9 @@ async def entrypoint(ctx: JobContext) -> None:
         clean_text = text_content.strip()
         if len(clean_text) == 0:
             return
+
+        # Update last activity time
+        last_activity_time = asyncio.get_event_loop().time()
 
         # Track transcript save task so we can await it on shutdown
         task = asyncio.create_task(
@@ -214,23 +219,31 @@ async def entrypoint(ctx: JobContext) -> None:
             waiting_for_answer = True  # expect the next candidate speech to be an answer
             logger.info("Interviewer turn %d / %d", interviewer_question_count, total_questions + 1)
 
-            # Normal end: all answers received, this interviewer turn is the farewell.
-            if candidate_answer_count >= total_questions:
-                interview_completed = True
-                logger.info("Interview concluding after farewell. Shutting down with drain.")
-                session.shutdown(drain=True)
-                return
+            # SAFETY CHECK: Detect if LLM output multiple questions in one response
+            # Count question marks and question-like phrases
+            question_mark_count = clean_text.count("?")
+            question_phrases = ["question", "what", "how", "why", "when", "where", "which", "who", "is it", "does it", "can you"]
+            phrase_count = sum(1 for phrase in question_phrases if phrase.lower() in clean_text.lower())
 
-            # SAFETY NET: If the LLM went rogue and dumped the farewell early
-            # (e.g. crammed multiple questions + goodbye into one response),
-            # detect it and force a clean shutdown so the call doesn't zombie.
-            farewell_signals = ["goodbye", "wraps up", "wish you the best",
-                                "reach out", "next steps", "conclude the call"]
-            text_lower = clean_text.lower()
-            if any(signal in text_lower for signal in farewell_signals):
-                interview_completed = True
+            # If detected multiple questions (more than 1 question mark or multiple question phrases), log warning
+            if question_mark_count > 1 or (question_mark_count >= 1 and phrase_count > 2):
                 logger.warning(
-                    "Farewell detected early (answers %d/%d). Forcing shutdown.",
+                    "LLM may have output multiple questions in one turn (question marks: %d, phrases: %d). Text: %s",
+                    question_mark_count, phrase_count, clean_text[:100]
+                )
+
+            # Detect farewell signals to properly end the interview
+            # These are specific phrases that only the interviewer should say when closing
+            farewell_signals = ["wraps up our interview", "thank you for taking the time to speak with",
+                                "our team will review", "reach out regarding next steps", "have a great day, goodbye"]
+            text_lower = clean_text.lower()
+            has_farewell = any(signal in text_lower for signal in farewell_signals)
+
+            # Only end if farewell is detected AND we have received all answers
+            if has_farewell and candidate_answer_count >= total_questions:
+                interview_completed = True
+                logger.info(
+                    "Farewell detected after all answers (answers %d/%d). Shutting down.",
                     candidate_answer_count, total_questions,
                 )
                 session.shutdown(drain=True)
@@ -259,6 +272,34 @@ async def entrypoint(ctx: JobContext) -> None:
 
     time_limit_task = asyncio.create_task(enforce_time_limit())
 
+    # Step 7.5: Heartbeat task to detect stuck interviews
+    # This task runs every 30 seconds to ensure the interview is progressing
+    # If no new conversation items for 60 seconds, consider it stuck and shut down
+    async def heartbeat_monitor() -> None:
+        nonlocal last_activity_time
+        while not interview_completed:
+            try:
+                await asyncio.sleep(30)  # Check every 30 seconds
+                current_time = asyncio.get_event_loop().time()
+                time_since_activity = current_time - last_activity_time
+
+                # If no activity for 60 seconds, log and potentially shut down
+                if time_since_activity > 60:
+                    logger.warning(
+                        "No conversation activity for %.0f seconds. Interview may be stuck. "
+                        "Answers: %d/%d",
+                        time_since_activity, candidate_answer_count, total_questions
+                    )
+                    # If we've had at least one exchange but then silence, end it
+                    if candidate_answer_count > 0:
+                        logger.info("Ending interview due to inactivity.")
+                        session.shutdown(drain=True)
+                        break
+            except asyncio.CancelledError:
+                break
+
+    heartbeat_task = asyncio.create_task(heartbeat_monitor())
+
     # Step 8: Shutdown callback to finalize status and trigger scoring
     async def on_shutdown() -> None:
         # Await all pending transcript saves so the last answer isn't lost
@@ -270,6 +311,9 @@ async def entrypoint(ctx: JobContext) -> None:
         if time_limit_task is not None and not time_limit_task.done():
             time_limit_task.cancel()
 
+        if heartbeat_task is not None and not heartbeat_task.done():
+            heartbeat_task.cancel()
+
         logger.info("Session shutting down for attempt %s", attempt_id_str)
         try:
             # Check if all questions were answered
@@ -279,11 +323,21 @@ async def entrypoint(ctx: JobContext) -> None:
                 final_status = STATUS_ABANDONED
 
             # Update status in MongoDB
-            await attempt_model.finish_attempt_session(
+            updated_doc = await attempt_model.finish_attempt_session(
                 db=db,
                 attempt_id=attempt_id,
                 final_status=final_status,
             )
+
+            if updated_doc is None:
+                logger.error("Failed to update attempt status during shutdown. Document may be locked.")
+                # Force update as a fallback - update without status check
+                current_time = now_utc()
+                await db["attempts"].update_one(
+                    {"_id": attempt_id},
+                    {"$set": {"status": final_status, "ended_at": current_time}}
+                )
+                logger.info("Forced status update completed as fallback.")
 
             # If completed, invoke automated scoring
             if final_status == STATUS_COMPLETED:
@@ -293,6 +347,18 @@ async def entrypoint(ctx: JobContext) -> None:
                     logger.info("Scoring completed successfully.")
                 except Exception as score_exc:
                     logger.error("Scoring failed for attempt %s: %s", attempt_id_str, str(score_exc))
+        except Exception as shutdown_exc:
+            logger.error("Error during shutdown: %s", str(shutdown_exc))
+            # Ensure we still try to mark as abandoned if shutdown fails
+            try:
+                current_time = now_utc()
+                await db["attempts"].update_one(
+                    {"_id": attempt_id},
+                    {"$set": {"status": STATUS_ABANDONED, "ended_at": current_time}}
+                )
+                logger.info("Emergency status update completed.")
+            except Exception as emergency_exc:
+                logger.error("Emergency status update also failed: %s", str(emergency_exc))
         finally:
             await agent_mongo_client.close()
             logger.info("Agent Mongo client closed.")
