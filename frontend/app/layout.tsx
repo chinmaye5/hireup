@@ -18,20 +18,19 @@ export const metadata: Metadata = {
 };
 
 const focusRing =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-const btnGhost = `hidden h-9 items-center rounded-full px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground sm:inline-flex ${focusRing}`;
-const btnPrimary = `inline-flex h-9 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 ${focusRing}`;
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40";
+const btnGhost = `hidden h-8 items-center px-3 text-[13px] font-medium border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors sm:inline-flex ${focusRing}`;
+const btnPrimary = `inline-flex h-8 items-center px-3.5 text-[13px] font-medium bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 hover:opacity-90 transition-opacity ${focusRing}`;
 
 // Four voice-level bars: the product is a voice interview.
-// Fixed colors on purpose (not theme tokens) so the mark looks the same in light and dark mode.
 function LogoMark() {
   return (
-    <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#18181b] ring-1 ring-white/15">
-      <svg viewBox="0 0 24 24" fill="#fafafa" className="h-4 w-4" aria-hidden="true">
-        <rect x="3" y="9" width="3" height="6" rx="1.5" />
-        <rect x="8" y="4" width="3" height="16" rx="1.5" />
-        <rect x="13" y="7" width="3" height="10" rx="1.5" />
-        <rect x="18" y="10" width="3" height="4" rx="1.5" />
+    <span className="flex h-7 w-7 items-center justify-center border border-neutral-300 dark:border-neutral-700 bg-neutral-950 dark:bg-white text-white dark:text-neutral-950">
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+        <rect x="3" y="9" width="3" height="6" />
+        <rect x="8" y="4" width="3" height="16" />
+        <rect x="13" y="7" width="3" height="10" />
+        <rect x="18" y="10" width="3" height="4" />
       </svg>
     </span>
   );

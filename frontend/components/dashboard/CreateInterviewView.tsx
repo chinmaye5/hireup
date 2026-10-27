@@ -27,7 +27,6 @@ export default function CreateInterviewView({
   onCreateInterview,
   onCancel,
 }: CreateInterviewViewProps) {
-  // Preset templates helper
   function loadPreset(role: "frontend" | "backend" | "fullstack") {
     if (role === "frontend") {
       setTitle("Frontend React Engineer");
@@ -51,122 +50,134 @@ export default function CreateInterviewView({
   }
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-xl p-6 md:p-8 shadow-sm flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-950">Create New Interview</h1>
-        <p className="text-sm text-neutral-600 mt-1">
-          Set up role specifications, voice questions, and scoring criteria.
+    <div className="space-y-8">
+      {/* ── Page Header ── */}
+      <div className="border-b border-neutral-200 dark:border-neutral-800 pb-5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500">
+          Template Setup
+        </p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-950 dark:text-white">
+          Create Interview
+        </h1>
+        <p className="mt-1 text-[13px] text-neutral-500 dark:text-neutral-400">
+          Define role specifications, voice questions, and automated scoring criteria.
         </p>
       </div>
 
-      {/* Preset Fast-Fill Buttons */}
-      <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
-        <p className="text-xs font-bold text-neutral-700 mb-2 uppercase tracking-wider">
-          Quick Templates:
+      {/* ── Preset Templates Strip ── */}
+      <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-500 mb-2.5">
+          Preset Templates
         </p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => loadPreset("frontend")}
-            className="bg-white border border-neutral-300 hover:bg-neutral-100 text-neutral-800 text-xs font-semibold px-3 py-1.5 rounded-md transition shadow-2xs"
+            className="h-8 px-3 text-[12px] font-medium border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 text-neutral-800 dark:text-neutral-200 hover:border-neutral-900 dark:hover:border-white transition-colors"
           >
-            💻 Frontend React
+            Frontend React
           </button>
           <button
             type="button"
             onClick={() => loadPreset("backend")}
-            className="bg-white border border-neutral-300 hover:bg-neutral-100 text-neutral-800 text-xs font-semibold px-3 py-1.5 rounded-md transition shadow-2xs"
+            className="h-8 px-3 text-[12px] font-medium border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 text-neutral-800 dark:text-neutral-200 hover:border-neutral-900 dark:hover:border-white transition-colors"
           >
-            ⚙️ Backend Node/Python
+            Backend Systems
           </button>
           <button
             type="button"
             onClick={() => loadPreset("fullstack")}
-            className="bg-white border border-neutral-300 hover:bg-neutral-100 text-neutral-800 text-xs font-semibold px-3 py-1.5 rounded-md transition shadow-2xs"
+            className="h-8 px-3 text-[12px] font-medium border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 text-neutral-800 dark:text-neutral-200 hover:border-neutral-900 dark:hover:border-white transition-colors"
           >
-            🚀 Full Stack Engineer
+            Full Stack Engineering
           </button>
         </div>
       </div>
 
-      {/* Main Form */}
-      <form onSubmit={onCreateInterview} className="flex flex-col gap-5">
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 mb-1">
-            Job / Role Title
-          </label>
-          <input
-            type="text"
-            required
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Senior Backend Engineer"
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-          />
-        </div>
-
-        <div>
-          <div className="flex justify-between items-center mb-1">
-            <label className="text-xs font-semibold uppercase tracking-wider text-neutral-700">
-              Questions & Rubric
-            </label>
-            <span className="text-[11px] text-neutral-400">
-              Format: Question text || Rubric
-            </span>
-          </div>
-          <textarea
-            required
-            rows={6}
-            value={questionsRaw}
-            onChange={(e) => setQuestionsRaw(e.target.value)}
-            className="w-full rounded-lg border border-neutral-300 p-3 font-mono text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-          />
-          <p className="text-xs text-neutral-500 mt-1">
-            Enter one question per line. The AI interviewer will ask them in this exact order.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* ── Form Section ── */}
+      <form onSubmit={onCreateInterview} className="space-y-6">
+        <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 space-y-6">
+          {/* Role Title */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 mb-1">
-              Time Limit (Minutes)
+            <label className="block text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-500 dark:text-neutral-400 mb-2">
+              Job / Role Title
             </label>
             <input
-              type="number"
-              min={5}
-              max={60}
+              type="text"
               required
-              value={timeLimitMin}
-              onChange={(e) => setTimeLimitMin(Number(e.target.value))}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Senior Backend Engineer"
+              className="w-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3 py-2 text-[13px] text-neutral-950 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-neutral-950 dark:focus:border-white transition-colors"
             />
           </div>
+
+          {/* Questions & Rubric */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 mb-1">
-              Expiration Date & Time
-            </label>
-            <input
-              type="datetime-local"
+            <div className="flex justify-between items-baseline mb-2">
+              <label className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-500 dark:text-neutral-400">
+                Questions & Rubric
+              </label>
+              <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-500">
+                Format: Question || Rubric
+              </span>
+            </div>
+            <textarea
               required
-              value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              rows={7}
+              value={questionsRaw}
+              onChange={(e) => setQuestionsRaw(e.target.value)}
+              className="w-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 p-3 font-mono text-[12px] leading-relaxed text-neutral-950 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-neutral-950 dark:focus:border-white transition-colors"
             />
+            <p className="mt-1.5 text-[11px] text-neutral-400 dark:text-neutral-500">
+              One question per line. The AI interviewer will deliver them sequentially.
+            </p>
+          </div>
+
+          {/* Duration & Expiration */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+            <div>
+              <label className="block text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-500 dark:text-neutral-400 mb-2">
+                Time Limit (Minutes)
+              </label>
+              <input
+                type="number"
+                min={5}
+                max={60}
+                required
+                value={timeLimitMin}
+                onChange={(e) => setTimeLimitMin(Number(e.target.value))}
+                className="w-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3 py-2 text-[13px] tabular-nums text-neutral-950 dark:text-white focus:outline-none focus:border-neutral-950 dark:focus:border-white transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-500 dark:text-neutral-400 mb-2">
+                Expiration Timestamp
+              </label>
+              <input
+                type="datetime-local"
+                required
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+                className="w-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3 py-2 text-[13px] tabular-nums text-neutral-950 dark:text-white focus:outline-none focus:border-neutral-950 dark:focus:border-white transition-colors"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-3 pt-2">
+        {/* ── Actions ── */}
+        <div className="flex items-center gap-3">
           <button
             type="submit"
             disabled={creatingInterview}
-            className="bg-neutral-900 text-white font-medium px-6 py-2.5 rounded-lg hover:bg-neutral-800 disabled:opacity-50 transition"
+            className="h-9 px-4 text-[13px] font-medium bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 hover:opacity-90 disabled:opacity-40 transition-opacity"
           >
-            {creatingInterview ? "Creating..." : "Save Interview Template"}
+            {creatingInterview ? "Saving Template…" : "Save Template"}
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="border border-neutral-300 text-neutral-700 font-medium px-4 py-2.5 rounded-lg hover:bg-neutral-100 transition"
+            className="h-9 px-4 text-[13px] font-medium border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
           >
             Cancel
           </button>

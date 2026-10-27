@@ -35,43 +35,55 @@ export default function CandidateInvitesView({
   onGoToCreate,
 }: CandidateInvitesViewProps) {
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-950">Candidate Invites</h1>
-        <p className="text-sm text-neutral-600 mt-1">
-          Send interview invitations to candidates and track their links.
+    <div className="space-y-8">
+      {/* ── Page Header ── */}
+      <div className="border-b border-neutral-200 dark:border-neutral-800 pb-5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500">
+          Distribution
+        </p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-950 dark:text-white">
+          Candidate Invites
+        </h1>
+        <p className="mt-1 text-[13px] text-neutral-500 dark:text-neutral-400">
+          Dispatch unique voice interview sessions and monitor completion status.
         </p>
       </div>
 
       {interviews.length === 0 ? (
-        <div className="bg-white border border-neutral-200 rounded-xl p-8 text-center shadow-sm">
-          <p className="text-neutral-500 text-sm">
-            You must create an interview template before inviting candidates.
+        <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-12 text-center">
+          <p className="text-[13px] text-neutral-500 dark:text-neutral-400">
+            No active interview templates found. An interview template is required prior to inviting candidates.
           </p>
           <button
             type="button"
             onClick={onGoToCreate}
-            className="mt-3 bg-neutral-900 text-white text-xs font-semibold px-4 py-2 rounded-lg"
+            className="mt-4 h-8 px-4 text-[13px] font-medium bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 hover:opacity-90 transition-opacity"
           >
-            Create Interview
+            Create Interview Template
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Send Invites Form Card */}
-          <div className="bg-white border border-neutral-200 rounded-xl p-6 shadow-sm flex flex-col gap-4">
-            <h2 className="text-base font-bold text-neutral-900">
-              Send New Invitation
-            </h2>
-            <form onSubmit={onSendInvites} className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* ── Left Form Column (4 cols) ── */}
+          <div className="lg:col-span-5 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 space-y-6">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-500">
+                Dispatch Form
+              </p>
+              <h2 className="mt-1 text-base font-semibold text-neutral-950 dark:text-white">
+                Send New Invitation
+              </h2>
+            </div>
+
+            <form onSubmit={onSendInvites} className="space-y-5">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 mb-1">
-                  Select Interview Role
+                <label className="block text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-500 dark:text-neutral-400 mb-2">
+                  Select Role
                 </label>
                 <select
                   value={selectedInterviewId}
                   onChange={(e) => setSelectedInterviewId(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  className="w-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3 py-2 text-[13px] text-neutral-950 dark:text-white focus:outline-none focus:border-neutral-950 dark:focus:border-white transition-colors"
                 >
                   {interviews.map((item) => (
                     <option key={item.id} value={item.id}>
@@ -82,7 +94,7 @@ export default function CandidateInvitesView({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 mb-1">
+                <label className="block text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-500 dark:text-neutral-400 mb-2">
                   Candidate Emails
                 </label>
                 <textarea
@@ -90,119 +102,125 @@ export default function CandidateInvitesView({
                   required
                   value={inviteEmailsText}
                   onChange={(e) => setInviteEmailsText(e.target.value)}
-                  placeholder="candidate1@example.com&#10;candidate2@example.com"
-                  className="w-full rounded-lg border border-neutral-300 p-2.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  placeholder={"candidate1@domain.com\ncandidate2@domain.com"}
+                  className="w-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 p-3 font-mono text-[12px] text-neutral-950 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-neutral-950 dark:focus:border-white transition-colors"
                 />
-                <p className="text-[11px] text-neutral-500 mt-1">
-                  Enter one email per line or separate by commas.
+                <p className="mt-1.5 text-[11px] text-neutral-400 dark:text-neutral-500">
+                  Separated by newlines or commas.
                 </p>
               </div>
 
               <button
                 type="submit"
                 disabled={sendingInvites}
-                className="bg-neutral-900 text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-neutral-800 disabled:opacity-50 transition"
+                className="w-full h-9 text-[13px] font-medium bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 hover:opacity-90 disabled:opacity-40 transition-opacity"
               >
-                {sendingInvites ? "Sending Invites..." : "Send Invites"}
+                {sendingInvites ? "Dispatching…" : "Dispatch Invites"}
               </button>
             </form>
 
             {inviteResult && (
-              <div className="mt-2 p-3 bg-neutral-50 rounded-lg border border-neutral-200 text-xs">
-                <p className="font-semibold text-neutral-800">
-                  Invites Created: {inviteResult.created.length}
+              <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 text-[12px] space-y-1">
+                <p className="font-medium text-neutral-950 dark:text-white">
+                  Created: <span className="tabular-nums font-mono">{inviteResult.created.length}</span>
                 </p>
                 {inviteResult.skipped.length > 0 && (
-                  <p className="text-neutral-500 mt-1">
-                    Skipped (already invited): {inviteResult.skipped.length}
+                  <p className="text-neutral-500 dark:text-neutral-400">
+                    Already invited (skipped): <span className="tabular-nums font-mono">{inviteResult.skipped.length}</span>
                   </p>
                 )}
               </div>
             )}
           </div>
 
-          {/* Candidate Attempts for Selected Role */}
-          <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-xl p-6 shadow-sm flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+          {/* ── Right Attempts Table (7 cols) ── */}
+          <div className="lg:col-span-7 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            {/* Table Header */}
+            <div className="p-5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-base font-bold text-neutral-900">
-                  Candidate Attempts
-                </h2>
-                <p className="text-xs text-neutral-500">
-                  Role: {selectedInterviewDetail?.title || "Loading interview..."}
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-500">
+                  Session Log
                 </p>
+                <h2 className="mt-0.5 text-base font-semibold text-neutral-950 dark:text-white truncate">
+                  {selectedInterviewDetail?.title || "Candidate Attempts"}
+                </h2>
               </div>
               {selectedInterviewId && (
                 <Link
                   href={`/dashboard/interviews/${selectedInterviewId}`}
-                  className="text-xs font-semibold text-neutral-800 hover:underline"
+                  className="text-[12px] font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white transition-colors whitespace-nowrap"
                 >
-                  Open Full Interview Page &rarr;
+                  View Details &rarr;
                 </Link>
               )}
             </div>
 
             {loadingDetail ? (
-              <p className="text-xs text-neutral-400 py-8 text-center">
-                Loading candidates...
-              </p>
-            ) : !selectedInterviewDetail ||
-              selectedInterviewDetail.attempts.length === 0 ? (
-              <div className="text-center py-8 text-neutral-500 text-xs">
-                No candidates invited for this role yet. Use the invite box on the left
-                to send invitations.
+              <div className="py-16 text-center">
+                <p className="text-[12px] text-neutral-400 dark:text-neutral-500">Loading attempts…</p>
+              </div>
+            ) : !selectedInterviewDetail || selectedInterviewDetail.attempts.length === 0 ? (
+              <div className="py-16 text-center px-4">
+                <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
+                  No candidate records for this template yet.
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-neutral-200 bg-neutral-50 text-neutral-600 font-semibold">
-                    <tr>
-                      <th className="p-2.5">Candidate Email</th>
-                      <th className="p-2.5">Status</th>
-                      <th className="p-2.5">Score</th>
-                      <th className="p-2.5">Actions</th>
+                <table className="w-full text-left text-[12px]">
+                  <thead>
+                    <tr className="border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500 bg-neutral-50/50 dark:bg-neutral-950/50">
+                      <th className="py-2.5 px-4 font-semibold">Candidate</th>
+                      <th className="py-2.5 px-4 font-semibold">Status</th>
+                      <th className="py-2.5 px-4 font-semibold">Score</th>
+                      <th className="py-2.5 px-4 font-semibold text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-100">
+                  <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                     {selectedInterviewDetail.attempts.map((attempt) => (
-                      <tr key={attempt.id} className="hover:bg-neutral-50">
-                        <td className="p-2.5 font-medium text-neutral-900">
+                      <tr key={attempt.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/40 transition-colors">
+                        <td className="py-3 px-4 font-medium text-neutral-950 dark:text-white truncate max-w-[180px]">
                           {attempt.email}
                         </td>
-                        <td className="p-2.5">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                              attempt.status === "scored"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : attempt.status === "in_progress"
-                                ? "bg-blue-100 text-blue-800"
-                                : attempt.status === "invited"
-                                ? "bg-neutral-100 text-neutral-800"
-                                : "bg-amber-100 text-amber-800"
-                            }`}
-                          >
+                        <td className="py-3 px-4">
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                attempt.status === "scored"
+                                  ? "bg-emerald-500"
+                                  : attempt.status === "in_progress"
+                                  ? "bg-blue-500"
+                                  : attempt.status === "invited"
+                                  ? "bg-neutral-400"
+                                  : "bg-amber-500"
+                              }`}
+                            />
                             {attempt.status}
                           </span>
                         </td>
-                        <td className="p-2.5 font-semibold">
-                          {attempt.overall_score !== null
-                            ? `${attempt.overall_score} / 100`
-                            : "—"}
+                        <td className="py-3 px-4 tabular-nums font-mono text-neutral-950 dark:text-white">
+                          {attempt.overall_score !== null ? (
+                            <span>{attempt.overall_score}<span className="text-neutral-400 text-[11px]">/100</span></span>
+                          ) : (
+                            <span className="text-neutral-400">—</span>
+                          )}
                         </td>
-                        <td className="p-2.5 flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onCopyLink(attempt.id)}
-                            className="border border-neutral-300 bg-white hover:bg-neutral-100 px-2.5 py-1 rounded text-[11px] font-medium"
-                          >
-                            {copiedAttemptId === attempt.id ? "Copied!" : "Copy Link"}
-                          </button>
-                          <Link
-                            href={`/dashboard/attempts/${attempt.id}`}
-                            className="text-neutral-900 font-semibold hover:underline text-[11px]"
-                          >
-                            View Report
-                          </Link>
+                        <td className="py-3 px-4 text-right">
+                          <div className="inline-flex items-center gap-2 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => onCopyLink(attempt.id)}
+                              className="h-7 px-2.5 text-[11px] font-medium border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:border-neutral-900 dark:hover:border-white transition-colors"
+                            >
+                              {copiedAttemptId === attempt.id ? "Copied" : "Copy Link"}
+                            </button>
+                            <Link
+                              href={`/dashboard/attempts/${attempt.id}`}
+                              className="h-7 px-2.5 text-[11px] font-medium inline-flex items-center border border-neutral-200 dark:border-neutral-700 text-neutral-950 dark:text-white hover:border-neutral-900 dark:hover:border-white transition-colors"
+                            >
+                              Report
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}

@@ -296,22 +296,24 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="py-20 flex flex-col items-center justify-center gap-3">
-        <div className="w-8 h-8 border-4 border-neutral-300 border-t-neutral-900 rounded-full animate-spin"></div>
-        <p className="text-sm text-neutral-500">Loading your recruiter dashboard...</p>
+      <div className="py-24 flex flex-col items-center justify-center gap-3">
+        <div className="w-5 h-5 border-2 border-neutral-300 dark:border-neutral-700 border-t-neutral-950 dark:border-t-white rounded-full animate-spin" />
+        <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500">
+          Loading workspace…
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full p-4 md:p-6">
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 py-8">
       {/* Error and Success Notifications */}
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700 flex items-center justify-between">
-          <span>{error}</span>
+        <div className="mb-6 border-l-2 border-red-500 bg-red-500/10 text-red-700 dark:text-red-400 p-3 text-[12px] flex items-center justify-between">
+          <span className="font-mono">{error}</span>
           <button
             onClick={() => setError(null)}
-            className="text-red-500 hover:text-red-800 text-xs font-semibold"
+            className="text-[11px] uppercase tracking-wider font-semibold hover:underline ml-4"
           >
             Dismiss
           </button>
@@ -319,11 +321,11 @@ export default function DashboardPage() {
       )}
 
       {successMessage && (
-        <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 flex items-center justify-between">
-          <span>{successMessage}</span>
+        <div className="mb-6 border-l-2 border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 p-3 text-[12px] flex items-center justify-between">
+          <span className="font-mono">{successMessage}</span>
           <button
             onClick={() => setSuccessMessage(null)}
-            className="text-emerald-600 hover:text-emerald-900 text-xs font-semibold"
+            className="text-[11px] uppercase tracking-wider font-semibold hover:underline ml-4"
           >
             Dismiss
           </button>
@@ -340,7 +342,7 @@ export default function DashboardPage() {
         />
       ) : (
         /* Case 2: Company exists -> show Sidebar + Active Component */
-        <div className="flex flex-col md:flex-row gap-6 items-start">
+        <div className="flex flex-col md:flex-row gap-8 items-start">
           <Sidebar
             companyName={company.name}
             activeTab={activeTab}
@@ -366,6 +368,12 @@ export default function DashboardPage() {
                 deletingId={deletingId}
                 onDeleteInterview={handleDeleteInterview}
                 onGoToCreate={() => setActiveTab("create")}
+                onGoToInvites={(interviewId) => {
+                  if (interviewId) {
+                    setSelectedInterviewId(interviewId);
+                  }
+                  setActiveTab("invites");
+                }}
               />
             )}
 

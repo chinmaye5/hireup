@@ -65,16 +65,16 @@ export default function AttemptDetailPage() {
       );
       setAttempt(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load attempt details");
+      setError(err instanceof Error ? err.message : "Failed to load attempt");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (isLoaded && attemptId) {
-      loadAttempt();
-    }
+    if (!isLoaded || !attemptId) return;
+    loadAttempt();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attemptId, isLoaded]);
 
   async function handleRescore() {
@@ -82,7 +82,7 @@ export default function AttemptDetailPage() {
     setError(null);
     try {
       const token = await getToken();
-      await apiRequest(`/api/attempts/${attemptId}/rescore`, "POST", token);
+      await apiRequest(`/api/attempts/${attemptId}/score`, "POST", token);
       await loadAttempt();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to re-score attempt");
@@ -92,147 +92,211 @@ export default function AttemptDetailPage() {
   }
 
   if (loading) {
-    return <p className="py-12 text-center text-neutral-500">Loading attempt details...</p>;
+    return (
+      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 py-24 flex flex-col items-center justify-center gap-3">
+        <div className="w-5 h-5 border-2 border-neutral-300 dark:border-neutral-700 border-t-neutral-950 dark:border-t-white rounded-full animate-spin" />
+        <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500">
+          Loading candidate report…
+        </p>
+      </div>
+    );
   }
 
   if (!attempt) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-red-600 mb-4">{error || "Attempt not found"}</p>
-        <Link href="/dashboard" className="text-sm underline">
-          Back to Dashboard
+      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 py-16 text-center space-y-4">
+        <p className="text-[13px] font-mono text-red-600 dark:text-red-400">{error || "Attempt not found"}</p>
+        <Link href="/dashboard" className="text-[13px] font-medium text-neutral-950 dark:text-white underline">
+          &larr; Back to Dashboard
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="py-6 flex flex-col gap-8">
-      <div>
-        <Link
-          href={`/dashboard/interviews/${attempt.interview_id}`}
-          className="text-xs text-neutral-500 hover:underline"
-        >
-          &larr; Back to Interview
-        </Link>
-        <div className="flex items-center justify-between mt-2">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-950">
-              Candidate: {attempt.email}
-            </h1>
-            <p className="text-xs text-neutral-500 mt-1">
-              Role: {attempt.interview_title} · Status:{" "}
-              <span className="capitalize font-semibold">{attempt.status}</span>
-            </p>
-          </div>
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 py-8 space-y-8">
+      {/* ── Breadcrumb & Title ── */}
+      <div className="border-b border-neutral-200 dark:border-neutral-800 pb-5">
+        <div className="flex items-center justify-between gap-4">
+          <Link
+            href={`/dashboard/interviews/${attempt.interview_id}`}
+            className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500 hover:text-neutral-950 dark:hover:text-white transition-colors"
+          >
+            &larr; Back to {attempt.interview_title}
+          </Link>
           <button
             onClick={handleRescore}
             disabled={rescoring}
-            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 hover:text-neutral-950 transition-colors shadow-sm disabled:opacity-50"
+            className="h-8 px-3 text-[12px] font-medium border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 hover:border-neutral-900 dark:hover:border-white transition-colors disabled:opacity-40"
           >
-            {rescoring ? "Re-scoring with LLM..." : "Re-score Attempt"}
+            {rescoring ? "Re-scoring…" : "Re-score Attempt"}
           </button>
+        </div>
+
+        <div className="mt-3 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500">
+              Evaluation Report
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-950 dark:text-white">
+              {attempt.email}
+            </h1>
+            <p className="mt-1 text-[13px] text-neutral-500 dark:text-neutral-400">
+              Role: <strong className="font-semibold text-neutral-950 dark:text-white">{attempt.interview_title}</strong> · Status: <span className="uppercase text-[11px] font-mono tracking-wider">{attempt.status}</span>
+            </p>
+          </div>
+
+          {attempt.result && (
+            <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-5 py-3 text-right shrink-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-500">
+                Score
+              </p>
+              <p className="text-3xl font-semibold tabular-nums text-neutral-950 dark:text-white leading-tight">
+                {attempt.result.overall_score}<span className="text-sm font-normal text-neutral-400">/10</span>
+              </p>
+              <p className="text-[11px] font-mono uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mt-0.5">
+                {attempt.result.recommendation}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+        <div className="border-l-2 border-red-500 bg-red-500/10 text-red-700 dark:text-red-400 p-3 text-[12px] font-mono">
           {error}
         </div>
       )}
 
-      {/* Evaluation Results Section */}
+      {/* ── Evaluation Section ── */}
       {attempt.result ? (
-        <div className="rounded-lg border border-neutral-200 bg-white p-6 flex flex-col gap-6 shadow-sm">
-          <div className="flex items-center justify-between border-b pb-4">
-            <div>
-              <h2 className="text-lg font-bold text-neutral-900">AI Evaluation</h2>
-              <p className="text-xs text-neutral-600 mt-0.5">
-                Recommendation:{" "}
-                <span className="capitalize font-bold text-neutral-950">
-                  {attempt.result.recommendation}
-                </span>
+        <div className="space-y-6">
+          {/* Executive Summary */}
+          <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 space-y-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-500">
+              Executive Evaluation Summary
+            </p>
+            <p className="text-[14px] leading-relaxed text-neutral-800 dark:text-neutral-200 font-sans">
+              {attempt.result.summary}
+            </p>
+          </div>
+
+          {/* Strengths & Weaknesses Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
+                Demonstrated Strengths
               </p>
-            </div>
-            <div className="text-right">
-              <span className="text-3xl font-extrabold text-neutral-950">
-                {attempt.result.overall_score}
-              </span>
-              <span className="text-neutral-600 text-sm"> / 10</span>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-xs font-bold uppercase text-neutral-700 mb-1">Summary</h3>
-            <p className="text-sm text-neutral-800 leading-relaxed">{attempt.result.summary}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-md bg-green-50 border border-green-200 p-4">
-              <h4 className="text-xs font-bold text-green-900 mb-2">Strengths</h4>
-              <ul className="list-disc list-inside text-xs text-green-950 space-y-1">
+              <ul className="space-y-2 text-[13px] text-neutral-800 dark:text-neutral-200">
                 {attempt.result.strengths.map((str, i) => (
-                  <li key={i}>{str}</li>
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-neutral-400 select-none">—</span>
+                    <span>{str}</span>
+                  </li>
                 ))}
               </ul>
             </div>
-            <div className="rounded-md bg-amber-50 border border-amber-200 p-4">
-              <h4 className="text-xs font-bold text-amber-900 mb-2">Areas for Growth</h4>
-              <ul className="list-disc list-inside text-xs text-amber-950 space-y-1">
+
+            <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
+                Areas for Development
+              </p>
+              <ul className="space-y-2 text-[13px] text-neutral-800 dark:text-neutral-200">
                 {attempt.result.weaknesses.map((w, i) => (
-                  <li key={i}>{w}</li>
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-neutral-400 select-none">—</span>
+                    <span>{w}</span>
+                  </li>
                 ))}
               </ul>
             </div>
           </div>
 
-          <div>
-            <h3 className="text-xs font-bold uppercase text-neutral-700 mb-2">
-              Per-Question Breakdown
-            </h3>
-            <div className="space-y-3">
+          {/* Per Question Breakdown */}
+          <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <div className="p-5 border-b border-neutral-200 dark:border-neutral-800">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-500">
+                Rubric Analysis
+              </p>
+              <h2 className="mt-0.5 text-base font-semibold text-neutral-950 dark:text-white">
+                Per-Question Scoring Breakdown
+              </h2>
+            </div>
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {attempt.result.per_question.map((q) => (
-                <div key={q.question_index} className="border border-neutral-200 bg-neutral-50 rounded p-3 text-xs">
-                  <div className="flex justify-between font-bold text-neutral-950 mb-1">
-                    <span>Question {q.question_index}</span>
-                    <span className="text-neutral-900">{q.score} / 10</span>
+                <div key={q.question_index} className="p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="space-y-1.5 flex-1">
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                      Question {String(q.question_index).padStart(2, "0")}
+                    </p>
+                    <p className="text-[13px] text-neutral-800 dark:text-neutral-200 leading-relaxed">
+                      {q.notes}
+                    </p>
                   </div>
-                  <p className="text-neutral-700 leading-relaxed">{q.notes}</p>
+                  <div className="text-right sm:w-20 shrink-0">
+                    <span className="text-lg font-semibold tabular-nums text-neutral-950 dark:text-white">
+                      {q.score}
+                    </span>
+                    <span className="text-[11px] text-neutral-400">/10</span>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+        <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8 text-center">
           {attempt.result_error ? (
-            <p className="text-red-600">Scoring Error: {attempt.result_error}</p>
+            <p className="text-[13px] font-mono text-red-600 dark:text-red-400">
+              Scoring error: {attempt.result_error}
+            </p>
           ) : (
-            <p>No evaluation available yet. The attempt will be scored once completed.</p>
+            <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
+              Evaluation not completed yet. Once the session is concluded, AI scoring will generate automatically.
+            </p>
           )}
         </div>
       )}
 
-      {/* Full Transcript Section */}
-      <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-bold text-neutral-900 mb-4">Conversation Transcript</h2>
+      {/* ── Conversation Transcript ── */}
+      <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+        <div className="p-5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-500">
+              Audio Recording
+            </p>
+            <h2 className="mt-0.5 text-base font-semibold text-neutral-950 dark:text-white">
+              Verbatim Dialogue Transcript
+            </h2>
+          </div>
+          <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-500 tabular-nums">
+            {attempt.transcript.length} utterances
+          </span>
+        </div>
+
         {attempt.transcript.length === 0 ? (
-          <p className="text-sm text-neutral-600">No messages recorded.</p>
+          <div className="py-16 text-center">
+            <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
+              No recorded transcript messages.
+            </p>
+          </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {attempt.transcript.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`p-3 rounded-lg text-xs max-w-xl ${
-                  msg.role === "interviewer"
-                    ? "bg-neutral-100 text-neutral-900 self-start"
-                    : "bg-blue-50 text-blue-950 self-end border border-blue-200"
-                }`}
-              >
-                <div className="font-bold mb-1 uppercase tracking-wider text-[10px] text-neutral-500">
-                  {msg.role === "interviewer" ? "AI Interviewer" : "Candidate"}
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800 p-2">
+            {attempt.transcript.map((msg, i) => (
+              <div key={i} className="p-4 flex flex-col sm:flex-row gap-3 sm:gap-6">
+                <div className="sm:w-36 shrink-0 space-y-0.5">
+                  <p className={`text-[11px] font-mono uppercase tracking-wider font-semibold ${
+                    msg.role === "candidate" ? "text-neutral-950 dark:text-white" : "text-neutral-400 dark:text-neutral-500"
+                  }`}>
+                    {msg.role === "candidate" ? "Candidate" : "Interviewer"}
+                  </p>
+                  <p className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500">
+                    {msg.timestamp || "—"}
+                  </p>
                 </div>
-                <p className="text-sm leading-relaxed">{msg.text}</p>
+                <div className="flex-1 text-[13px] leading-relaxed text-neutral-800 dark:text-neutral-200">
+                  {msg.text}
+                </div>
               </div>
             ))}
           </div>

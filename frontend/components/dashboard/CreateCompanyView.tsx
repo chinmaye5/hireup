@@ -14,19 +14,22 @@ export default function CreateCompanyView({
   onCreateCompany,
 }: CreateCompanyViewProps) {
   return (
-    <div className="max-w-md mx-auto my-12 bg-white rounded-xl border border-neutral-200 p-8 shadow-sm">
-      <div className="w-12 h-12 bg-neutral-900 text-white rounded-lg flex items-center justify-center text-xl font-bold mb-4">
-        🏢
+    <div className="max-w-md mx-auto my-16 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8 space-y-6">
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-400 dark:text-neutral-500">
+          Setup Workspace
+        </p>
+        <h2 className="mt-1 text-xl font-semibold tracking-tight text-neutral-950 dark:text-white">
+          Create Organization
+        </h2>
+        <p className="mt-2 text-[13px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+          Set up your recruiting workspace to begin defining technical interview rubrics and inviting candidates.
+        </p>
       </div>
-      <h2 className="text-xl font-bold text-neutral-900">Create Your Company</h2>
-      <p className="text-sm text-neutral-600 mt-2 mb-6">
-        Welcome to HireUp! Set up your company workspace to begin creating technical
-        interview templates and inviting candidates.
-      </p>
 
-      <form onSubmit={onCreateCompany} className="flex flex-col gap-4">
+      <form onSubmit={onCreateCompany} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 mb-1">
+          <label className="block text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-500 dark:text-neutral-400 mb-2">
             Company Name
           </label>
           <input
@@ -35,16 +38,16 @@ export default function CreateCompanyView({
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             placeholder="e.g. Acme Technologies"
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+            className="w-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3 py-2 text-[13px] text-neutral-950 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-neutral-950 dark:focus:border-white transition-colors"
           />
         </div>
 
         <button
           type="submit"
           disabled={creatingCompany}
-          className="w-full rounded-lg bg-neutral-900 py-2.5 text-white font-medium hover:bg-neutral-800 disabled:opacity-50 transition"
+          className="w-full h-9 text-[13px] font-medium bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 hover:opacity-90 disabled:opacity-40 transition-opacity"
         >
-          {creatingCompany ? "Creating Workspace..." : "Create Workspace"}
+          {creatingCompany ? "Initializing Workspace…" : "Create Workspace"}
         </button>
       </form>
     </div>

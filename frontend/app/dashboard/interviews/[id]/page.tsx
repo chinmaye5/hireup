@@ -58,64 +58,66 @@ export default function InterviewDetailPage() {
   // Delete attempt state
   const [deletingAttemptId, setDeletingAttemptId] = useState<string | null>(null);
 
-  // Copy status
+  // Copy candidate link state
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  async function loadInterview() {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = await getToken();
-      const data = await apiRequest<InterviewDetail>(
-        `/api/interviews/${interviewId}`,
-        "GET",
-        token
-      );
-      setInterview(data);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load interview");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    if (isLoaded && interviewId) {
-      loadInterview();
+    if (!isLoaded || !interviewId) return;
+
+    async function loadInterview() {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = await getToken();
+        const data = await apiRequest<InterviewDetail>(
+          `/api/interviews/${interviewId}`,
+          "GET",
+          token
+        );
+        setInterview(data);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load interview");
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [interviewId, isLoaded]);
+
+    loadInterview();
+  }, [interviewId, getToken, isLoaded]);
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     if (!emailsText.trim()) return;
 
-    // Split emails by commas or newlines
-    const rawTokens = emailsText.split(/[\n,]+/);
-    const parsedEmails: string[] = [];
-    for (let i = 0; i < rawTokens.length; i++) {
-      const em = rawTokens[i].trim();
-      if (em.length > 0) {
-        parsedEmails.push(em);
-      }
-    }
+    const emails = emailsText
+      .split(/[\n,]+/)
+      .map((em) => em.trim())
+      .filter((em) => em.length > 0);
 
-    if (parsedEmails.length === 0) return;
+    if (emails.length === 0) return;
 
     setInviting(true);
     setError(null);
     setInviteResult(null);
+
     try {
       const token = await getToken();
       const res = await apiRequest<InviteResponse>(
         `/api/interviews/${interviewId}/invites`,
         "POST",
         token,
-        { emails: parsedEmails }
+        { emails }
       );
       setInviteResult(res);
       setEmailsText("");
-      // Reload attempts list
-      await loadInterview();
+
+      // Refresh interview data
+      const refreshed = await apiRequest<InterviewDetail>(
+        `/api/interviews/${interviewId}`,
+        "GET",
+        token
+      );
+      setInterview(refreshed);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to invite candidates");
     } finally {
@@ -124,15 +126,20 @@ export default function InterviewDetailPage() {
   }
 
   async function handleReset(attemptId: string) {
-    if (!confirm("Are you sure you want to reset this attempt? The candidate will be able to retry.")) {
-      return;
-    }
     setResettingId(attemptId);
     setError(null);
     try {
       const token = await getToken();
       await apiRequest(`/api/attempts/${attemptId}/reset`, "POST", token);
-      await loadInterview();
+      setInterview((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          attempts: prev.attempts.map((a) =>
+            a.id === attemptId ? { ...a, status: "invited", overall_score: null } : a
+          ),
+        };
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to reset attempt");
     } finally {
@@ -172,145 +179,242 @@ export default function InterviewDetailPage() {
   }
 
   if (loading) {
-    return <p className="py-12 text-center text-neutral-500">Loading interview...</p>;
+    return (
+      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 py-24 flex flex-col items-center justify-center gap-3">
+        <div className="w-5 h-5 border-2 border-neutral-300 dark:border-neutral-700 border-t-neutral-950 dark:border-t-white rounded-full animate-spin" />
+        <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500">
+          Loading interview…
+        </p>
+      </div>
+    );
   }
 
   if (!interview) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-red-600 mb-4">{error || "Interview not found"}</p>
-        <Link href="/dashboard" className="text-sm underline">
-          Back to Dashboard
+      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 py-16 text-center space-y-4">
+        <p className="text-[13px] font-mono text-red-600 dark:text-red-400">{error || "Interview not found"}</p>
+        <Link href="/dashboard" className="text-[13px] font-medium text-neutral-950 dark:text-white underline">
+          &larr; Back to Dashboard
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="py-6 flex flex-col gap-8">
-      <div>
-        <Link href="/dashboard" className="text-xs text-neutral-500 hover:underline">
-          &larr; Back to Dashboard
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 py-8 space-y-8">
+      {/* ── Breadcrumb & Header ── */}
+      <div className="border-b border-neutral-200 dark:border-neutral-800 pb-5">
+        <Link
+          href="/dashboard"
+          className="text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500 hover:text-neutral-950 dark:hover:text-white transition-colors"
+        >
+          &larr; Return to Dashboard
         </Link>
-        <h1 className="text-2xl font-bold text-neutral-950 mt-2">{interview.title}</h1>
-        <p className="text-xs text-neutral-500 mt-1">
-          Time limit: {interview.time_limit_min} mins · Expires:{" "}
-          {new Date(interview.expires_at).toLocaleString()}
-        </p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-neutral-950 dark:text-white">
+          {interview.title}
+        </h1>
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-[12px] font-mono text-neutral-500 dark:text-neutral-400">
+          <span>LIMIT: <strong className="font-semibold text-neutral-950 dark:text-white tabular-nums">{interview.time_limit_min} MIN</strong></span>
+          <span className="text-neutral-300 dark:text-neutral-700">/</span>
+          <span>EXPIRES: <strong className="font-semibold text-neutral-950 dark:text-white">{new Date(interview.expires_at).toLocaleDateString()}</strong></span>
+          <span className="text-neutral-300 dark:text-neutral-700">/</span>
+          <span>QUESTIONS: <strong className="font-semibold text-neutral-950 dark:text-white tabular-nums">{interview.questions.length}</strong></span>
+        </div>
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+        <div className="border-l-2 border-red-500 bg-red-500/10 text-red-700 dark:text-red-400 p-3 text-[12px] font-mono">
           {error}
         </div>
       )}
 
-      {/* Invite Candidates Box */}
-      <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-bold text-neutral-900 mb-2">Invite Candidates</h2>
-        <p className="text-xs text-neutral-600 mb-4">
-          Enter candidate emails (separated by commas or new lines). Each candidate gets a private link.
-        </p>
-        <form onSubmit={handleInvite} className="flex flex-col gap-3">
-          <textarea
-            required
-            rows={3}
-            value={emailsText}
-            onChange={(e) => setEmailsText(e.target.value)}
-            placeholder="candidate1@example.com&#10;candidate2@example.com"
-            className="w-full rounded-md border border-neutral-300 bg-white p-3 font-mono text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-          />
-          <button
-            type="submit"
-            disabled={inviting}
-            className="self-start rounded-md bg-neutral-900 px-4 py-2 text-xs text-white font-semibold hover:bg-neutral-800 disabled:opacity-50 shadow-sm"
-          >
-            {inviting ? "Inviting..." : "Send Invites"}
-          </button>
-        </form>
-
-        {inviteResult && (
-          <div className="mt-4 text-xs">
-            {inviteResult.created.length > 0 && (
-              <p className="text-green-800 font-medium">
-                Created {inviteResult.created.length} new invite(s):{" "}
-                {inviteResult.created.join(", ")}
-              </p>
-            )}
-            {inviteResult.skipped.length > 0 && (
-              <p className="text-neutral-600 mt-1">
-                Skipped {inviteResult.skipped.length} existing invite(s):{" "}
-                {inviteResult.skipped.join(", ")}
-              </p>
-            )}
+      {/* ── Two Column Layout: Invite + Questions ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left: Dispatch Form */}
+        <div className="lg:col-span-5 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 space-y-5">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-500">
+              Candidate Access
+            </p>
+            <h2 className="mt-1 text-base font-semibold text-neutral-950 dark:text-white">
+              Dispatch Invitations
+            </h2>
           </div>
-        )}
+
+          <form onSubmit={handleInvite} className="space-y-4">
+            <div>
+              <label className="block text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-500 dark:text-neutral-400 mb-2">
+                Candidate Emails
+              </label>
+              <textarea
+                required
+                rows={4}
+                value={emailsText}
+                onChange={(e) => setEmailsText(e.target.value)}
+                placeholder={"candidate1@domain.com\ncandidate2@domain.com"}
+                className="w-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 p-3 font-mono text-[12px] text-neutral-950 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-neutral-950 dark:focus:border-white transition-colors"
+              />
+              <p className="mt-1.5 text-[11px] text-neutral-400 dark:text-neutral-500">
+                Separated by newlines or commas.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={inviting}
+              className="w-full h-9 text-[13px] font-medium bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 hover:opacity-90 disabled:opacity-40 transition-opacity"
+            >
+              {inviting ? "Sending…" : "Send Invites"}
+            </button>
+          </form>
+
+          {inviteResult && (
+            <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 text-[12px] space-y-1">
+              {inviteResult.created.length > 0 && (
+                <p className="font-medium text-neutral-950 dark:text-white">
+                  Created: <span className="tabular-nums font-mono">{inviteResult.created.length}</span>
+                </p>
+              )}
+              {inviteResult.skipped.length > 0 && (
+                <p className="text-neutral-500 dark:text-neutral-400">
+                  Skipped: <span className="tabular-nums font-mono">{inviteResult.skipped.length}</span>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Right: Question Rubric Spec */}
+        <div className="lg:col-span-7 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+          <div className="p-5 border-b border-neutral-200 dark:border-neutral-800">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-500">
+              Evaluation Spec
+            </p>
+            <h2 className="mt-0.5 text-base font-semibold text-neutral-950 dark:text-white">
+              Prompt Questions & Rubrics
+            </h2>
+          </div>
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+            {interview.questions.map((q, idx) => (
+              <div key={idx} className="p-4 space-y-1.5">
+                <div className="flex items-start gap-2">
+                  <span className="text-[11px] font-mono text-neutral-400 dark:text-neutral-500 tabular-nums">
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <p className="text-[13px] font-medium text-neutral-950 dark:text-white leading-snug">
+                    {q.text}
+                  </p>
+                </div>
+                {q.rubric && (
+                  <p className="ml-6 text-[12px] font-mono text-neutral-500 dark:text-neutral-400">
+                    Criterion: {q.rubric}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Candidate Attempts Table */}
-      <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-bold text-neutral-900 mb-4">Candidate Attempts</h2>
+      {/* ── Candidate Attempts Table ── */}
+      <div className="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+        <div className="p-5 border-b border-neutral-200 dark:border-neutral-800">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400 dark:text-neutral-500">
+            Candidate Submissions
+          </p>
+          <h2 className="mt-0.5 text-base font-semibold text-neutral-950 dark:text-white">
+            Interview Attempts ({interview.attempts.length})
+          </h2>
+        </div>
+
         {interview.attempts.length === 0 ? (
-          <p className="text-sm text-neutral-600">No candidates invited yet.</p>
+          <div className="py-16 text-center">
+            <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
+              No candidates have been invited to this role yet.
+            </p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-[12px]">
               <thead>
-                <tr className="border-b border-neutral-200 bg-neutral-100 text-neutral-800 font-semibold">
-                  <th className="py-2.5 px-3">Email</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Score</th>
-                  <th className="py-2.5 px-3">Recommendation</th>
-                  <th className="py-2.5 px-3">Actions</th>
+                <tr className="border-b border-neutral-200 dark:border-neutral-800 text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500 bg-neutral-50/50 dark:bg-neutral-950/50">
+                  <th className="py-2.5 px-4 font-semibold">Email</th>
+                  <th className="py-2.5 px-4 font-semibold">Status</th>
+                  <th className="py-2.5 px-4 font-semibold">Score</th>
+                  <th className="py-2.5 px-4 font-semibold">Recommendation</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                 {interview.attempts.map((att) => (
-                  <tr key={att.id} className="border-b border-neutral-100 hover:bg-neutral-50">
-                    <td className="py-3 px-3 font-medium text-neutral-950">{att.email}</td>
-                    <td className="py-3 px-3">
-                      <span className="capitalize font-medium text-neutral-800">{att.status}</span>
+                  <tr key={att.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/40 transition-colors">
+                    <td className="py-3 px-4 font-medium text-neutral-950 dark:text-white">
+                      {att.email}
                     </td>
-                    <td className="py-3 px-3 font-semibold text-neutral-950">
-                      {att.overall_score !== null ? `${att.overall_score} / 10` : "—"}
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            att.status === "scored"
+                              ? "bg-emerald-500"
+                              : att.status === "in_progress"
+                              ? "bg-blue-500"
+                              : att.status === "invited"
+                              ? "bg-neutral-400"
+                              : "bg-amber-500"
+                          }`}
+                        />
+                        {att.status}
+                      </span>
                     </td>
-                    <td className="py-3 px-3">
-                      {att.recommendation ? (
-                        <span className="capitalize font-semibold text-neutral-900">{att.recommendation}</span>
+                    <td className="py-3 px-4 tabular-nums font-mono text-neutral-950 dark:text-white">
+                      {att.overall_score !== null ? (
+                        <span>{att.overall_score}<span className="text-neutral-400 text-[11px]">/10</span></span>
                       ) : (
                         <span className="text-neutral-400">—</span>
                       )}
                     </td>
-                    <td className="py-3 px-3 flex items-center gap-2">
-                      <button
-                        onClick={() => copyCandidateLink(att.id)}
-                        className="rounded border border-neutral-300 bg-white px-2.5 py-1 text-neutral-800 font-medium hover:bg-neutral-100 hover:text-neutral-950 transition-colors shadow-sm"
-                        title="Copy candidate invite link"
-                      >
-                        {copiedId === att.id ? "Copied!" : "Copy Link"}
-                      </button>
-                      <Link
-                        href={`/dashboard/attempts/${att.id}`}
-                        className="rounded border border-neutral-300 bg-white px-2.5 py-1 text-neutral-800 font-medium hover:bg-neutral-100 hover:text-neutral-950 transition-colors shadow-sm"
-                      >
-                        View
-                      </Link>
-                      <button
-                        onClick={() => handleReset(att.id)}
-                        disabled={resettingId === att.id}
-                        className="rounded border border-amber-200 bg-amber-50 text-amber-800 font-medium px-2.5 py-1 hover:bg-amber-100 transition-colors shadow-sm disabled:opacity-50"
-                        title="Reset attempt so candidate can retry"
-                      >
-                        {resettingId === att.id ? "Resetting..." : "Reset"}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteAttempt(att.id, att.email)}
-                        disabled={deletingAttemptId === att.id}
-                        className="rounded border border-red-200 bg-red-50 text-red-700 font-medium px-2.5 py-1 hover:bg-red-100 transition-colors shadow-sm disabled:opacity-50"
-                        title="Delete candidate invite"
-                      >
-                        {deletingAttemptId === att.id ? "Deleting..." : "Delete"}
-                      </button>
+                    <td className="py-3 px-4">
+                      {att.recommendation ? (
+                        <span className="text-[11px] font-mono uppercase text-neutral-950 dark:text-white">
+                          {att.recommendation}
+                        </span>
+                      ) : (
+                        <span className="text-neutral-400">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="inline-flex items-center gap-2 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => copyCandidateLink(att.id)}
+                          className="h-7 px-2.5 text-[11px] font-medium border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:border-neutral-900 dark:hover:border-white transition-colors"
+                        >
+                          {copiedId === att.id ? "Copied" : "Copy"}
+                        </button>
+                        <Link
+                          href={`/dashboard/attempts/${att.id}`}
+                          className="h-7 px-2.5 text-[11px] font-medium inline-flex items-center border border-neutral-200 dark:border-neutral-700 text-neutral-950 dark:text-white hover:border-neutral-900 dark:hover:border-white transition-colors"
+                        >
+                          Report
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleReset(att.id)}
+                          disabled={resettingId === att.id}
+                          className="h-7 px-2.5 text-[11px] font-medium border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:border-neutral-900 dark:hover:border-white transition-colors disabled:opacity-40"
+                        >
+                          {resettingId === att.id ? "…" : "Reset"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAttempt(att.id, att.email)}
+                          disabled={deletingAttemptId === att.id}
+                          className="h-7 px-2.5 text-[11px] font-medium border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                        >
+                          {deletingAttemptId === att.id ? "…" : "Delete"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
