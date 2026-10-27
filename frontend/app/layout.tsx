@@ -71,7 +71,7 @@ export default function RootLayout({
               </nav>
             </div>
           </header>
-          <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">{children}</div>
+          <div className="flex-1 w-full flex flex-col">{children}</div>
         </body>
       </html>
     </ClerkProvider>

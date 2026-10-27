@@ -51,7 +51,7 @@ export default function MyInterviewsPage() {
   }
 
   return (
-    <div className="py-6 flex flex-col gap-6 max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 flex flex-col gap-6 w-full">
       <div>
         <h1 className="text-2xl font-bold text-neutral-950">My Interviews</h1>
         <p className="text-sm text-neutral-500 mt-1">

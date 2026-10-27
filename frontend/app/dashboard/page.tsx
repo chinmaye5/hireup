@@ -304,7 +304,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="py-2">
+    <div className="max-w-7xl mx-auto w-full p-4 md:p-6">
       {/* Error and Success Notifications */}
       {error && (
         <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700 flex items-center justify-between">
