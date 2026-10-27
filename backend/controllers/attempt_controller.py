@@ -16,7 +16,38 @@ from pymongo.asynchronous.database import AsyncDatabase
 from models import attempt_model
 from utils.constants import STATUS_IN_PROGRESS, STATUS_COMPLETED, STATUS_SCORED, STATUS_SCORE_FAILED
 from utils.helpers import to_object_id, now_utc
-from utils.serializers import serialize_attempt_detail
+from utils.serializers import serialize_attempt_detail, serialize_id, serialize_datetime
+
+
+async def list_company_attempts(
+    current_user: dict[str, Any],
+    db: AsyncDatabase
+) -> list[dict[str, Any]]:
+    """
+    Fetches all candidate attempts for the recruiter's company.
+    """
+    company_id: ObjectId = current_user["company_id"]
+    docs = await attempt_model.find_all_attempts_for_company(db, company_id)
+
+    formatted_list: list[dict[str, Any]] = []
+    for doc in docs:
+        res = doc.get("result") or {}
+        formatted_list.append({
+            "id": serialize_id(doc.get("_id")),
+            "interview_id": serialize_id(doc.get("interview_id")),
+            "interview_title": doc.get("interview_title") or "Interview",
+            "company_name": doc.get("company_name") or "",
+            "email": doc.get("email"),
+            "status": doc.get("status"),
+            "started_at": serialize_datetime(doc.get("started_at")),
+            "ended_at": serialize_datetime(doc.get("ended_at")),
+            "created_at": serialize_datetime(doc.get("created_at")),
+            "expires_at": serialize_datetime(doc.get("expires_at")),
+            "overall_score": res.get("overall_score") if isinstance(res, dict) else None,
+            "recommendation": res.get("recommendation") if isinstance(res, dict) else None,
+            "summary": res.get("summary") if isinstance(res, dict) else None,
+        })
+    return formatted_list
 
 
 async def get_attempt_detail(

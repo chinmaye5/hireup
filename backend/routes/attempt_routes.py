@@ -20,6 +20,18 @@ from controllers import attempt_controller
 router = APIRouter(prefix="/attempts", tags=["Attempts (Recruiter)"])
 
 
+@router.get("")
+async def list_company_attempts_route(
+    current_user: dict[str, Any] = Depends(require_company_user),
+    db: AsyncDatabase = Depends(get_db)
+) -> list[dict[str, Any]]:
+    """Lists all candidate attempts for the recruiter's company."""
+    return await attempt_controller.list_company_attempts(
+        current_user=current_user,
+        db=db
+    )
+
+
 @router.get("/{attempt_id}")
 async def get_attempt_detail_route(
     attempt_id: str,
@@ -35,6 +47,7 @@ async def get_attempt_detail_route(
 
 
 @router.post("/{attempt_id}/rescore")
+@router.post("/{attempt_id}/score")
 async def rescore_attempt_route(
     attempt_id: str,
     current_user: dict[str, Any] = Depends(require_company_user),

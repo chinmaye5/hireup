@@ -133,11 +133,12 @@ export default function InterviewsView({
       ) : (
         <div className="border border-neutral-200 dark:border-neutral-800 overflow-hidden divide-y divide-neutral-200 dark:divide-neutral-800">
           {/* Table Header */}
-          <div className="hidden sm:grid sm:grid-cols-[1fr_6rem_7rem_6rem_2.5rem] items-center px-4 py-2.5 bg-neutral-50 dark:bg-neutral-900 text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500">
+          <div className="hidden sm:grid sm:grid-cols-[1fr_5.5rem_6.5rem_5rem_8.5rem_2rem] items-center px-4 py-2.5 bg-neutral-50 dark:bg-neutral-900 text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-400 dark:text-neutral-500">
             <span>Interview Role</span>
             <span className="text-right">Duration</span>
             <span className="text-right">Expires</span>
             <span className="text-right">Scored</span>
+            <span className="text-right">Actions</span>
             <span />
           </div>
 
@@ -158,7 +159,7 @@ export default function InterviewsView({
                 {/* Clickable Row */}
                 <div
                   onClick={() => toggleExpand(item.id)}
-                  className={`flex flex-col sm:grid sm:grid-cols-[1fr_6rem_7rem_6rem_2.5rem] items-start sm:items-center px-4 py-3 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors gap-2 sm:gap-0 ${
+                  className={`flex flex-col sm:grid sm:grid-cols-[1fr_5.5rem_6.5rem_5rem_8.5rem_2rem] items-start sm:items-center px-4 py-3 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors gap-2 sm:gap-0 ${
                     isExpanded ? "bg-neutral-50/80 dark:bg-neutral-800/40 border-l-2 border-neutral-950 dark:border-white" : ""
                   }`}
                 >
@@ -192,6 +193,35 @@ export default function InterviewsView({
                   <span className="hidden sm:block text-[13px] font-mono tabular-nums text-neutral-950 dark:text-white font-medium text-right">
                     {counts.scored || 0}
                   </span>
+
+                  {/* Explicit Action Buttons in Row */}
+                  <div className="flex items-center justify-end gap-2 w-full sm:w-auto">
+                    {onGoToInvites && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onGoToInvites(item.id);
+                        }}
+                        className="h-7 px-2.5 text-[11px] font-medium bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 hover:opacity-90 transition-opacity"
+                        title="Invite candidates to this role"
+                      >
+                        Invite
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteInterview(item.id);
+                      }}
+                      disabled={deletingId === item.id}
+                      className="text-[11px] font-medium text-neutral-400 dark:text-neutral-500 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-50"
+                      title="Delete interview"
+                    >
+                      {deletingId === item.id ? "…" : "Delete"}
+                    </button>
+                  </div>
 
                   {/* Expand Chevron Icon */}
                   <div className="hidden sm:flex items-center justify-end text-neutral-400 dark:text-neutral-500">

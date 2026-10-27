@@ -11,6 +11,7 @@ import CreateInterviewView from "@/components/dashboard/CreateInterviewView";
 import CandidateInvitesView from "@/components/dashboard/CandidateInvitesView";
 import CompanyProfileView from "@/components/dashboard/CompanyProfileView";
 import CreateCompanyView from "@/components/dashboard/CreateCompanyView";
+import CandidatesAttemptsView from "@/components/dashboard/CandidatesAttemptsView";
 
 import {
   MeResponse,
@@ -97,26 +98,39 @@ export default function DashboardPage() {
   // Load selected interview detail for Candidate Invites view
   useEffect(() => {
     if (!isLoaded || !selectedInterviewId) return;
+    if (activeTab !== "invites") return;
+
+    let isMounted = true;
 
     async function loadDetail() {
       setLoadingDetail(true);
       try {
         const token = await getToken();
+        if (!token) return;
         const detail = await apiRequest<InterviewDetailResponse>(
           `/api/interviews/${selectedInterviewId}`,
           "GET",
           token
         );
-        setSelectedInterviewDetail(detail);
+        if (isMounted) {
+          setSelectedInterviewDetail(detail);
+        }
       } catch (err: unknown) {
-        console.error("Failed to load interview details:", err);
+        if (isMounted) {
+          console.warn("Could not load interview details:", err);
+        }
       } finally {
-        setLoadingDetail(false);
+        if (isMounted) {
+          setLoadingDetail(false);
+        }
       }
     }
 
     loadDetail();
-  }, [selectedInterviewId, getToken, isLoaded]);
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedInterviewId, activeTab, getToken, isLoaded]);
 
   // Show temporary banner notification
   function notifySuccess(message: string) {
@@ -408,6 +422,17 @@ export default function DashboardPage() {
                 onSendInvites={handleSendInvites}
                 onCopyLink={handleCopyLink}
                 onGoToCreate={() => setActiveTab("create")}
+              />
+            )}
+
+            {activeTab === "attempts" && (
+              <CandidatesAttemptsView
+                onGoToInvites={(interviewId) => {
+                  if (interviewId) {
+                    setSelectedInterviewId(interviewId);
+                  }
+                  setActiveTab("invites");
+                }}
               />
             )}
 

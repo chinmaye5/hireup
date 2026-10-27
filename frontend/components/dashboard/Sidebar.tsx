@@ -15,6 +15,7 @@ const tabs: { key: TabType; label: string }[] = [
   { key: "interviews", label: "Interviews" },
   { key: "create", label: "New Interview" },
   { key: "invites", label: "Invites" },
+  { key: "attempts", label: "Candidates & Results" },
   { key: "company", label: "Settings" },
 ];
 

@@ -205,6 +205,40 @@ async def find_attempts_for_interview_summary(
     async for doc in cursor:
         attempts_list.append(doc)
 
+
+async def find_all_attempts_for_company(
+    db: AsyncDatabase,
+    company_id: ObjectId
+) -> list[dict[str, Any]]:
+    """
+    Fetches all candidate attempts across all interviews for a company.
+    Excludes full transcript array to keep list query fast.
+    """
+    filter_query: dict[str, Any] = {
+        "company_id": company_id,
+    }
+    projection: dict[str, int] = {
+        "_id": 1,
+        "interview_id": 1,
+        "company_id": 1,
+        "interview_title": 1,
+        "company_name": 1,
+        "email": 1,
+        "status": 1,
+        "started_at": 1,
+        "ended_at": 1,
+        "created_at": 1,
+        "expires_at": 1,
+        "result.overall_score": 1,
+        "result.recommendation": 1,
+        "result.summary": 1,
+    }
+
+    cursor = db["attempts"].find(filter_query, projection).sort("created_at", -1)
+    attempts_list: list[dict[str, Any]] = []
+    async for doc in cursor:
+        attempts_list.append(doc)
+
     return attempts_list
 
 

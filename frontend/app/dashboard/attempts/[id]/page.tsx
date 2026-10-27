@@ -275,30 +275,45 @@ export default function AttemptDetailPage() {
         </div>
 
         {attempt.transcript.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-[13px] text-neutral-400 dark:text-neutral-500">
-              No recorded transcript messages.
-            </p>
+          <div className="py-16 text-center text-[13px] text-neutral-400 dark:text-neutral-500">
+            No dialogue recorded for this session.
           </div>
         ) : (
-          <div className="divide-y divide-neutral-100 dark:divide-neutral-800 p-2">
-            {attempt.transcript.map((msg, i) => (
-              <div key={i} className="p-4 flex flex-col sm:flex-row gap-3 sm:gap-6">
-                <div className="sm:w-36 shrink-0 space-y-0.5">
-                  <p className={`text-[11px] font-mono uppercase tracking-wider font-semibold ${
-                    msg.role === "candidate" ? "text-neutral-950 dark:text-white" : "text-neutral-400 dark:text-neutral-500"
-                  }`}>
-                    {msg.role === "candidate" ? "Candidate" : "Interviewer"}
-                  </p>
-                  <p className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500">
-                    {msg.timestamp || "—"}
-                  </p>
+          <div className="p-4 sm:p-6 space-y-5 bg-neutral-50/40 dark:bg-neutral-950/40">
+            {attempt.transcript.map((msg, index) => {
+              const isAi = msg.role === "interviewer";
+              return (
+                <div
+                  key={index}
+                  className={`flex flex-col ${isAi ? "items-start" : "items-end"} gap-1`}
+                >
+                  {/* Speaker Meta Header */}
+                  <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 px-1">
+                    {isAi && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                    )}
+                    <span>{isAi ? "AI Interviewer" : "Candidate"}</span>
+                    {msg.timestamp && (
+                      <>
+                        <span>·</span>
+                        <span>{msg.timestamp}</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Chat Speech Bubble */}
+                  <div
+                    className={`max-w-[85%] sm:max-w-[75%] px-4 py-3 text-[13px] leading-relaxed ${
+                      isAi
+                        ? "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-800 rounded-2xl rounded-tl-xs shadow-2xs"
+                        : "bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 rounded-2xl rounded-tr-xs"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
                 </div>
-                <div className="flex-1 text-[13px] leading-relaxed text-neutral-800 dark:text-neutral-200">
-                  {msg.text}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
