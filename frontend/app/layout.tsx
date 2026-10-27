@@ -32,7 +32,7 @@ export default function RootLayout({
           className="min-h-full flex flex-col bg-neutral-50 text-neutral-900 font-sans"
           suppressHydrationWarning
         >
-          <header className="border-b border-neutral-200 bg-white sticky top-0 z-10">
+          <header className="border-b border-neutral-200 bg-white sticky top-0 z-10" id="main-header">
             <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
               <Link href="/" className="font-bold text-lg text-neutral-900 flex items-center gap-2">
                 <span className="w-8 h-8 rounded-lg bg-neutral-900 text-white flex items-center justify-center font-bold text-sm">H</span>

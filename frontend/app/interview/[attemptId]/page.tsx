@@ -1,19 +1,18 @@
 "use client";
 
 import "@livekit/components-styles";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useParams } from "next/navigation";
 import { useAuth, useUser, SignInButton, SignOutButton } from "@clerk/nextjs";
-import { Track } from "livekit-client";
 import {
-  BarVisualizer,
-  ControlBar,
   LiveKitRoom,
   RoomAudioRenderer,
   useLocalParticipant,
+  useRoomContext,
   useVoiceAssistant,
 } from "@livekit/components-react";
 import { apiRequest } from "@/lib/api";
+import { SiriWave } from "@/components/ui/siri-wave";
 
 type StartResponse = {
   token: string;
@@ -32,37 +31,257 @@ type AttemptPublicInfo = {
   is_expired: boolean;
 };
 
-function InterviewVisualizerView() {
-  // Agent side: state ("listening" | "thinking" | "speaking") + its audio track
-  const { state, audioTrack } = useVoiceAssistant();
+const roomGradient = "bg-gradient-to-br from-neutral-950 via-neutral-900 to-black";
 
-  // Candidate side: microphone track
-  const { localParticipant, microphoneTrack } = useLocalParticipant();
-  const micRef = microphoneTrack
-    ? {
-        participant: localParticipant,
-        publication: microphoneTrack,
-        source: Track.Source.Microphone,
-      }
-    : undefined;
+const btn =
+  "inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-[15px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+const btnPrimary = `${btn} bg-neutral-950 text-white hover:bg-neutral-800`;
+const btnSecondary = `${btn} border border-neutral-300 bg-white text-neutral-950 hover:bg-neutral-50`;
+const roomBtn =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-xl px-5 text-[15px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+
+function Icon({ children, className = "h-5 w-5" }: { children: ReactNode; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const MicIcon = () => (
+  <Icon>
+    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+    <path d="M12 19v3" />
+  </Icon>
+);
+const MicOffIcon = () => (
+  <Icon>
+    <path d="m2 2 20 20" />
+    <path d="M18.9 13.2A7 7 0 0 0 19 12v-2" />
+    <path d="M5 10v2a7 7 0 0 0 12 5" />
+    <path d="M15 9.3V5a3 3 0 0 0-5.7-1.3" />
+    <path d="M9 9v3a3 3 0 0 0 5.1 2.1" />
+    <path d="M12 19v3" />
+  </Icon>
+);
+const CheckIcon = ({ className = "h-6 w-6" }: { className?: string }) => (
+  <Icon className={className}>
+    <path d="M20 6 9 17l-5-5" />
+  </Icon>
+);
+const AlertIcon = () => (
+  <Icon className="h-6 w-6">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 8v4" />
+    <path d="M12 16h.01" />
+  </Icon>
+);
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+const noticeTones = {
+  neutral: "border-neutral-200 bg-neutral-50 text-neutral-900",
+  warning: "border-amber-200 bg-amber-50 text-amber-900",
+  danger: "border-red-200 bg-red-50 text-red-900",
+};
+
+function Notice({
+  tone,
+  title,
+  children,
+}: {
+  tone: keyof typeof noticeTones;
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      role={tone === "danger" ? "alert" : "status"}
+      className={`rounded-xl border px-4 py-3.5 text-sm leading-relaxed ${noticeTones[tone]}`}
+    >
+      {title && <p className="font-medium">{title}</p>}
+      <div className={title ? "mt-1" : ""}>{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-6 py-3">
+      <dt className="text-neutral-500">{label}</dt>
+      <dd className="min-w-0 break-words text-right font-medium text-neutral-950">{value}</dd>
+    </div>
+  );
+}
+
+function StatusCard({
+  tone,
+  title,
+  children,
+}: {
+  tone: "success" | "danger";
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-8 py-10 text-center">
+      <div
+        className={`flex h-12 w-12 items-center justify-center rounded-full ${
+          tone === "success" ? "bg-neutral-950 text-white" : "bg-red-50 text-red-700"
+        }`}
+      >
+        {tone === "success" ? <CheckIcon /> : <AlertIcon />}
+      </div>
+      <h1 className="text-xl font-semibold tracking-tight text-neutral-950">{title}</h1>
+      <div className="text-sm leading-relaxed text-neutral-600">{children}</div>
+    </div>
+  );
+}
+
+function Person({
+  active,
+  name,
+  sub,
+  status,
+  children,
+}: {
+  active: boolean;
+  name: string;
+  sub?: string;
+  status: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div
+        className={`h-24 w-24 overflow-hidden rounded-full border-2 transition-all duration-300 sm:h-32 sm:w-32 ${
+          active ? "border-white shadow-[0_0_0_6px_rgba(255,255,255,0.12)]" : "border-white/20"
+        }`}
+      >
+        {children}
+      </div>
+      <div className="text-center">
+        <p className="text-sm font-semibold sm:text-base">{name}</p>
+        {sub && <p className="text-xs text-neutral-400">{sub}</p>}
+        <p className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-neutral-300">
+          <span className={`h-1.5 w-1.5 rounded-full ${active ? "bg-white" : "bg-white/30"}`} />
+          {status}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Scales the wave to the screen height so everything fits without scrolling.
+function useWaveSize() {
+  const [size, setSize] = useState(240);
+  useEffect(() => {
+    const update = () => setSize(Math.max(150, Math.min(280, Math.round(window.innerHeight * 0.3))));
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return size;
+}
+
+function InterviewVisualizerView({ attemptInfo }: { attemptInfo: AttemptPublicInfo | null }) {
+  // Agent side: state ("listening" | "thinking" | "speaking")
+  const { state } = useVoiceAssistant();
+  const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
+  const room = useRoomContext();
+  const { user } = useUser();
+  const waveSize = useWaveSize();
+
+  const agentSpeaking = state === "speaking";
+  const yourTurn = state === "listening" && isMicrophoneEnabled;
+  const agentLabel =
+    ({ speaking: "Speaking", thinking: "Thinking", listening: "Listening" } as Record<string, string>)[
+      state
+    ] ?? "Joining…";
+  const yourLabel = !isMicrophoneEnabled ? "Mic off" : yourTurn ? "Your turn" : "Mic on";
+
+  const toggleMic = useCallback(() => {
+    localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled).catch(() => {});
+  }, [localParticipant, isMicrophoneEnabled]);
+
+  // Disconnecting triggers LiveKitRoom's onDisconnected, which shows the "finished" screen.
+  const endInterview = useCallback(() => {
+    room.disconnect();
+  }, [room]);
 
   return (
-    <div className="flex w-full flex-col items-center gap-8 max-w-md mx-auto">
-      <section className="w-full text-center">
-        <p className="mb-2 text-sm text-neutral-600">
-          Interviewer · <span className="font-semibold text-neutral-950 capitalize">{state}</span>
-        </p>
-        <div className="h-24 w-full flex items-center justify-center bg-neutral-50 rounded-lg border border-neutral-200">
-          <BarVisualizer state={state} barCount={7} trackRef={audioTrack} />
+    <div className={`flex h-full w-full flex-col overflow-hidden text-white ${roomGradient}`}>
+      <header className="flex shrink-0 items-center justify-between gap-4 px-5 py-4 sm:px-8">
+        <div className="min-w-0">
+          <p className="truncate text-sm text-neutral-400">{attemptInfo?.company_name}</p>
+          <p className="truncate text-base font-medium">{attemptInfo?.interview_title}</p>
         </div>
-      </section>
+        <span className="flex shrink-0 items-center gap-2 text-sm text-neutral-300">
+          <span className="h-2 w-2 rounded-full bg-red-500 motion-safe:animate-pulse" />
+          Live
+        </span>
+      </header>
 
-      <section className="w-full text-center">
-        <p className="mb-2 text-sm text-neutral-600">Your Microphone</p>
-        <div className="h-16 w-full flex items-center justify-center bg-neutral-50 rounded-lg border border-neutral-200">
-          <BarVisualizer barCount={7} trackRef={micRef} />
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-4">
+        <div className="flex items-start justify-center gap-10 sm:gap-20">
+          <Person active={agentSpeaking} name="AI Interviewer" sub={attemptInfo?.company_name} status={agentLabel}>
+            <img src="/interview_avatar.png" alt="AI Interviewer" className="h-full w-full object-cover" />
+          </Person>
+          <Person active={yourTurn} name="You" sub="Candidate" status={yourLabel}>
+            {user?.imageUrl ? (
+              <img src={user.imageUrl} alt="You" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-neutral-700 text-3xl font-medium">
+                {(user?.firstName?.[0] || user?.emailAddresses[0]?.emailAddress[0] || "U").toUpperCase()}
+              </div>
+            )}
+          </Person>
         </div>
-      </section>
+
+        <SiriWave
+          variant="wave"
+          size={waveSize}
+          renderScale={0.75}
+          className="shadow-[0_0_80px_rgba(59,130,246,0.3)]"
+        />
+      </div>
+
+      <footer className="flex shrink-0 items-center justify-center gap-3 px-4 pb-6 pt-4">
+        <button
+          type="button"
+          onClick={toggleMic}
+          className={`${roomBtn} ${
+            isMicrophoneEnabled
+              ? "bg-white/10 text-white hover:bg-white/20"
+              : "bg-white text-neutral-950 hover:bg-neutral-200"
+          }`}
+        >
+          {isMicrophoneEnabled ? <MicIcon /> : <MicOffIcon />}
+          {isMicrophoneEnabled ? "Mute" : "Unmute"}
+        </button>
+        <button type="button" onClick={endInterview} className={`${roomBtn} bg-red-600 text-white hover:bg-red-700`}>
+          End interview
+        </button>
+      </footer>
     </div>
   );
 }
@@ -70,8 +289,8 @@ function InterviewVisualizerView() {
 export default function InterviewRoomPage() {
   const params = useParams();
   const attemptId = params.attemptId as string;
-  const { getToken, isSignedIn, isLoaded: authLoaded } = useAuth();
-  const { user, isLoaded: userLoaded } = useUser();
+  const { getToken, isSignedIn } = useAuth();
+  const { user } = useUser();
 
   const [attemptInfo, setAttemptInfo] = useState<AttemptPublicInfo | null>(null);
   const [fetchingInfo, setFetchingInfo] = useState(true);
@@ -152,6 +371,19 @@ export default function InterviewRoomPage() {
     };
   }, []);
 
+  // While the interview is active: hide the navbar and lock page scrolling
+  useEffect(() => {
+    if (!conn) return;
+    const header = document.getElementById("main-header");
+    const prevOverflow = document.body.style.overflow;
+    if (header) header.style.display = "none";
+    document.body.style.overflow = "hidden";
+    return () => {
+      if (header) header.style.display = "block";
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [conn]);
+
   const handleRoomError = useCallback((error: Error) => {
     const msg = error?.message || "";
     const isDataChannelTeardown =
@@ -169,154 +401,128 @@ export default function InterviewRoomPage() {
   const currentEmailDisplay = user?.primaryEmailAddress?.emailAddress || userEmails[0] || "";
 
   return (
-    <main className="py-12 flex flex-col items-center justify-center min-h-[60vh] max-w-xl mx-auto px-4">
+    <main
+      className={
+        conn
+          ? "fixed inset-0 z-50 overflow-hidden bg-black"
+          : "mx-auto flex min-h-[60vh] w-full max-w-4xl items-center px-4 py-10 sm:py-16"
+      }
+    >
       {isFinished ? (
-        <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center flex flex-col gap-4 shadow-sm w-full">
-          <h2 className="text-xl font-bold text-neutral-950">Interview Finished</h2>
-          <p className="text-sm text-neutral-600">
-            Thank you for completing your interview. Your conversation has been recorded and evaluated for the hiring team.
-          </p>
-        </div>
+        <StatusCard tone="success" title="Interview complete">
+          Thank you for taking the time. Your conversation has been recorded and passed to the hiring
+          team for evaluation. You can close this window.
+        </StatusCard>
       ) : !conn ? (
-        <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center flex flex-col items-center gap-6 w-full shadow-sm">
-          {fetchingInfo ? (
-            <div className="py-12 flex flex-col items-center gap-3">
-              <div className="w-8 h-8 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-sm text-neutral-600">Loading interview details...</p>
-            </div>
-          ) : infoError ? (
-            <div className="py-6 flex flex-col items-center gap-3 text-center">
-              <div className="rounded-full bg-red-100 text-red-700 p-3">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-              <h2 className="text-lg font-bold text-neutral-950">Interview Link Not Found</h2>
-              <p className="text-xs text-neutral-600 max-w-sm">{infoError}</p>
-              <p className="text-xs text-neutral-500 mt-2">
-                Please double-check your link or contact the hiring team for a new invitation.
-              </p>
-            </div>
-          ) : attemptInfo ? (
-            <>
-              {/* Header: Company & Role */}
-              <div className="text-center w-full">
-                <span className="inline-block rounded-full bg-neutral-100 text-neutral-700 font-semibold px-3 py-1 text-xs mb-2 uppercase tracking-wider">
-                  {attemptInfo.company_name}
-                </span>
-                <h1 className="text-2xl font-extrabold text-neutral-950">
+        fetchingInfo ? (
+          <div role="status" className="flex w-full flex-col items-center gap-3 py-16 text-sm text-neutral-500">
+            <div className="h-7 w-7 rounded-full border-2 border-neutral-950 border-t-transparent motion-safe:animate-spin" />
+            Loading interview details…
+          </div>
+        ) : infoError ? (
+          <StatusCard tone="danger" title="We can’t find this interview">
+            <p>{infoError}</p>
+            <p className="mt-2 text-neutral-500">
+              Make sure you opened the full link from your invitation email, or ask the hiring team for a
+              new one.
+            </p>
+          </StatusCard>
+        ) : attemptInfo ? (
+          <section className="grid w-full overflow-hidden rounded-2xl border border-neutral-200 bg-white md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+            {/* The invitation */}
+            <div className={`flex flex-col justify-between gap-10 p-8 text-white md:min-h-[540px] md:p-10 ${roomGradient}`}>
+              <p className="text-sm text-neutral-400">{attemptInfo.company_name}</p>
+              <div>
+                <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
                   {attemptInfo.interview_title}
                 </h1>
-                <p className="text-xs text-neutral-600 mt-1">
-                  AI Voice Technical Interview
+                <p className="mt-4 max-w-[34ch] text-[15px] leading-relaxed text-neutral-300">
+                  A spoken interview with an AI interviewer. You answer out loud, and no camera is needed.
                 </p>
               </div>
-
-              {/* Interview Meta Details Grid */}
-              <div className="w-full grid grid-cols-2 gap-3 text-left">
-                <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-                  <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block">Company</span>
-                  <span className="text-sm font-bold text-neutral-950 mt-0.5 block truncate">{attemptInfo.company_name}</span>
-                </div>
-                <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-                  <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block">Role</span>
-                  <span className="text-sm font-bold text-neutral-950 mt-0.5 block truncate">{attemptInfo.interview_title}</span>
-                </div>
-                <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-                  <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block">Duration</span>
-                  <span className="text-sm font-bold text-neutral-950 mt-0.5 block">{attemptInfo.time_limit_min} minutes</span>
-                </div>
-                <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-                  <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider block">Expires</span>
-                  <span className="text-sm font-bold text-neutral-950 mt-0.5 block">{new Date(attemptInfo.expires_at).toLocaleDateString()}</span>
+              <div className="flex items-center gap-3">
+                <img
+                  src="/interview_avatar.png"
+                  alt=""
+                  className="h-11 w-11 rounded-full object-cover ring-1 ring-white/20"
+                />
+                <div>
+                  <p className="text-sm font-medium">AI Interviewer</p>
+                  <p className="text-xs text-neutral-400">Conducts your interview</p>
                 </div>
               </div>
+            </div>
 
-              {/* Target Candidate Email Display */}
-              <div className="w-full rounded-md border border-neutral-200 bg-neutral-50 p-3 flex items-center justify-between text-xs">
-                <span className="text-neutral-600 font-medium">Invited Candidate:</span>
-                <span className="font-semibold text-neutral-950 bg-white border border-neutral-200 px-2 py-0.5 rounded shadow-xs font-mono">
-                  {attemptInfo.candidate_email}
-                </span>
-              </div>
+            {/* Details + action */}
+            <div className="flex flex-col gap-6 p-8 md:p-10">
+              <dl className="divide-y divide-neutral-200 border-y border-neutral-200 text-sm">
+                <DetailRow label="Duration" value={`${attemptInfo.time_limit_min} minutes`} />
+                <DetailRow label="Complete by" value={formatDate(attemptInfo.expires_at)} />
+                <DetailRow label="Format" value="Voice only" />
+                <DetailRow label="Invited as" value={attemptInfo.candidate_email} />
+              </dl>
 
-              {/* Status Checks: Expired or Completed */}
               {attemptInfo.is_expired ? (
-                <div className="w-full rounded-md bg-red-50 border border-red-200 p-4 text-center">
-                  <p className="text-sm font-bold text-red-900">This Interview Has Expired</p>
-                  <p className="text-xs text-red-700 mt-1">
-                    The deadline for this interview passed on {new Date(attemptInfo.expires_at).toLocaleString()}.
-                  </p>
-                </div>
+                <Notice tone="danger" title="This interview has expired">
+                  The deadline passed on {formatDateTime(attemptInfo.expires_at)}. Contact the hiring team at{" "}
+                  {attemptInfo.company_name} to ask for a new link.
+                </Notice>
               ) : attemptInfo.status === "completed" || attemptInfo.status === "scored" ? (
-                <div className="w-full rounded-md bg-green-50 border border-green-200 p-4 text-center">
-                  <p className="text-sm font-bold text-green-900">Interview Completed</p>
-                  <p className="text-xs text-green-800 mt-1">
-                    You have already finished this interview. Thank you!
-                  </p>
-                </div>
+                <Notice tone="neutral" title="Interview completed">
+                  You’ve already finished this interview. Thank you!
+                </Notice>
               ) : !isSignedIn ? (
-                /* Auth State 1: User is not logged in */
-                <div className="w-full rounded-lg border border-blue-200 bg-blue-50/70 p-5 flex flex-col gap-3 text-left">
-                  <div>
-                    <h3 className="text-sm font-bold text-blue-950">Authentication Required</h3>
-                    <p className="text-xs text-blue-900 mt-1 leading-relaxed">
-                      To give this interview, please sign in with your invited email:{" "}
-                      <span className="font-bold underline">{attemptInfo.candidate_email}</span>.
-                    </p>
-                  </div>
+                /* Auth state 1: not signed in */
+                <div className="flex flex-col gap-4">
+                  <p className="text-sm leading-relaxed text-neutral-600">
+                    This interview is reserved for the invited email address. Sign in with it to continue.
+                  </p>
                   <SignInButton mode="modal" forceRedirectUrl={`/interview/${attemptId}`}>
-                    <button className="w-full rounded-md bg-neutral-900 py-3 text-sm font-semibold text-white hover:bg-neutral-800 shadow-sm transition-colors text-center">
-                      Sign In with {attemptInfo.candidate_email} to Give Interview
+                    <button type="button" className={btnPrimary}>
+                      Sign in to continue
                     </button>
                   </SignInButton>
                 </div>
               ) : !isEmailMatched ? (
-                /* Auth State 2: User is logged in, but with a DIFFERENT email */
-                <div className="w-full rounded-lg border border-amber-200 bg-amber-50 p-5 flex flex-col gap-3 text-left">
-                  <div>
-                    <h3 className="text-sm font-bold text-amber-950">Wrong Account Signed In</h3>
-                    <p className="text-xs text-amber-900 mt-1 leading-relaxed">
-                      You are signed in as <span className="font-bold">{currentEmailDisplay}</span>, but this interview is reserved for{" "}
-                      <span className="font-bold underline">{attemptInfo.candidate_email}</span>.
-                    </p>
-                  </div>
+                /* Auth state 2: signed in with a different email */
+                <div className="flex flex-col gap-4">
+                  <Notice tone="warning" title="Wrong account">
+                    You’re signed in as <span className="font-medium">{currentEmailDisplay}</span>, but this
+                    interview is reserved for{" "}
+                    <span className="font-medium">{attemptInfo.candidate_email}</span>.
+                  </Notice>
                   <SignOutButton redirectUrl={`/interview/${attemptId}`}>
-                    <button className="w-full rounded-md border border-neutral-300 bg-white py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 shadow-sm transition-colors">
-                      Sign Out & Log In with {attemptInfo.candidate_email}
+                    <button type="button" className={btnSecondary}>
+                      Sign out and switch account
                     </button>
                   </SignOutButton>
                 </div>
               ) : (
-                /* Auth State 3: User is signed in with the MATCHING email */
-                <div className="w-full flex flex-col gap-4">
-                  <div className="w-full rounded-md bg-green-50 border border-green-200 p-3 text-xs text-green-900 flex items-center justify-between">
-                    <span className="font-medium">✓ Signed in as verified candidate:</span>
-                    <span className="font-bold">{attemptInfo.candidate_email}</span>
-                  </div>
-
-                  <div className="rounded-md bg-neutral-50 border border-neutral-200 p-4 text-xs text-neutral-700 text-left leading-relaxed">
-                    <span className="font-bold text-neutral-900">Microphone Notice:</span> Please ensure you are in a quiet room. When you click below, allow microphone permissions when prompted by your browser.
-                  </div>
-
-                  <button
-                    onClick={handleStart}
-                    disabled={starting}
-                    className="w-full rounded-md bg-neutral-900 py-3.5 text-base font-semibold text-white hover:bg-neutral-800 disabled:opacity-50 shadow-sm transition-colors"
-                  >
-                    {starting ? "Connecting to AI Interviewer..." : "Start Interview Call"}
+                /* Auth state 3: signed in with the matching email */
+                <div className="flex flex-col gap-5">
+                  <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+                    <CheckIcon className="h-4 w-4" />
+                    Signed in with the invited email
+                  </p>
+                  <ul className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-neutral-600 marker:text-neutral-400">
+                    <li>Find a quiet place where you won’t be interrupted.</li>
+                    <li>Use headphones if you can, to avoid echo.</li>
+                    <li>Allow microphone access when your browser asks.</li>
+                  </ul>
+                  <button type="button" onClick={handleStart} disabled={starting} className={btnPrimary}>
+                    {starting ? "Connecting…" : "Start interview"}
                   </button>
                 </div>
               )}
 
               {startError && (
-                <div className="rounded-md bg-red-50 border border-red-200 p-3 text-xs text-red-700 w-full text-left">
+                <Notice tone="danger" title="Couldn’t start the interview">
                   {startError}
-                </div>
+                </Notice>
               )}
-            </>
-          ) : null}
-        </div>
+            </div>
+          </section>
+        ) : null
       ) : (
         <LiveKitRoom
           token={conn.token}
@@ -327,24 +533,13 @@ export default function InterviewRoomPage() {
           onDisconnected={handleDisconnect}
           onError={handleRoomError}
           data-lk-theme="default"
-          className="flex w-full flex-col items-center gap-8"
+          className="flex h-full w-full"
         >
-          <InterviewVisualizerView />
+          <InterviewVisualizerView attemptInfo={attemptInfo} />
           {/* Required for browser to play agent audio */}
           <RoomAudioRenderer />
-          <ControlBar
-            controls={{
-              microphone: true,
-              leave: true,
-              camera: false,
-              screenShare: false,
-              chat: false,
-              settings: false,
-            }}
-          />
         </LiveKitRoom>
       )}
     </main>
   );
 }
-
