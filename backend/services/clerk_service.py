@@ -15,11 +15,10 @@ from utils.helpers import normalize_email
 # Shared Clerk client instance configured with the secret key
 clerk_client = Clerk(bearer_auth=CLERK_SECRET_KEY)
 
-# Build the list of authorized parties (origins) for JWT validation.
-# Ensure localhost variants are always included in dev mode.
 _AUTHORIZED_PARTIES: list[str] = list(set([
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://thehireup.vercel.app",
     *FRONTEND_ORIGINS,
 ]))
 

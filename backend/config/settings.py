@@ -61,7 +61,7 @@ FRONTEND_ORIGINS_RAW: str = get_optional_env("FRONTEND_ORIGINS", "http://localho
 raw_origins_list: list[str] = FRONTEND_ORIGINS_RAW.split(",")
 FRONTEND_ORIGINS: list[str] = []
 for origin in raw_origins_list:
-    cleaned_origin: str = origin.strip()
+    cleaned_origin: str = origin.strip().rstrip("/")
     if len(cleaned_origin) > 0:
         FRONTEND_ORIGINS.append(cleaned_origin)
 
