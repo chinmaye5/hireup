@@ -66,19 +66,24 @@ logger = logging.getLogger("hireup-agent")
 logging.basicConfig(level=logging.INFO)
 
 
-# Low-memory worker settings tuned for small / free tier cloud instances
+# Low-memory worker settings tuned for Render Free Tier (512 MB RAM).
+# num_idle_processes=0: No idle process is kept pre-warmed. A new process is
+# forked only when a LiveKit job arrives. This saves ~150 MB of idle RAM that
+# would otherwise hold the Silero ONNX model and livekit-agents runtime.
+# The trade-off is ~1-2 s extra latency on the very first interview of the day
+# while the process forks and loads the VAD model.
 server = AgentServer(
-    job_executor_type=JobExecutorType.THREAD,
-    num_idle_processes=1,
+    job_executor_type=JobExecutorType.PROCESS,
+    num_idle_processes=0,
     load_threshold=float("inf"),
 )
 
 
 def prewarm(proc: JobProcess) -> None:
-    """Preloads Silero VAD into process memory before any call arrives."""
+    """Preloads Silero VAD into process memory before the session starts."""
     proc.userdata["vad"] = silero.VAD.load(
-        min_silence_duration=0.35,   # React faster after candidate stops speaking (default 0.55)
-        min_speech_duration=0.05,    # Don't trigger on noise bursts
+        min_silence_duration=0.4,    # 0.4s quiet after speech to end a turn
+        min_speech_duration=0.05,    # Ignore noise bursts shorter than 50ms
         activation_threshold=0.5,    # Standard sensitivity
     )
 

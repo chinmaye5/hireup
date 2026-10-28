@@ -367,26 +367,6 @@ export default function InterviewRoomPage() {
     setStarting(true);
     setStartError(null);
     try {
-      // Pre-flight: ping /health/agent to warn if the agent worker is down.
-      // This is best-effort — we proceed even if this fetch fails.
-      try {
-        const API = process.env.NEXT_PUBLIC_API_URL ?? "";
-        const agentHealth = await fetch(`${API}/health/agent`, { signal: AbortSignal.timeout(5000) });
-        if (agentHealth.ok) {
-          const data = await agentHealth.json() as { agent_running: boolean; restart_count: number };
-          if (!data.agent_running) {
-            setStartError(
-              `The AI interviewer service is currently offline (restarts: ${data.restart_count}). ` +
-              "The backend may be waking up — please wait 30 seconds and try again."
-            );
-            setStarting(false);
-            return;
-          }
-        }
-      } catch {
-        // health check failed (network, timeout) — proceed anyway
-      }
-
       const authToken = await getToken();
       const res = await apiRequest<StartResponse>(
         `/api/attempts/${attemptId}/start`,
