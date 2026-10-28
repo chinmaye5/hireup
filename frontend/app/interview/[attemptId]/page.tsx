@@ -1,13 +1,14 @@
 "use client";
 
 import "@livekit/components-styles";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams } from "next/navigation";
 import { useAuth, useUser, SignInButton, SignOutButton } from "@clerk/nextjs";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
   useLocalParticipant,
+  useRemoteParticipants,
   useRoomContext,
   useVoiceAssistant,
 } from "@livekit/components-react";
@@ -204,20 +205,42 @@ function useWaveSize() {
 }
 
 function InterviewVisualizerView({ attemptInfo }: { attemptInfo: AttemptPublicInfo | null }) {
-  // Agent side: state ("listening" | "thinking" | "speaking")
-  const { state } = useVoiceAssistant();
+  // Agent side: state ("listening" | "thinking" | "speaking" | "connecting")
+  const { state, agent } = useVoiceAssistant();
+  const remoteParticipants = useRemoteParticipants();
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const room = useRoomContext();
   const { user } = useUser();
   const waveSize = useWaveSize();
+
+  // Track how long we've been waiting for the agent to join
+  const [agentWaitSec, setAgentWaitSec] = useState(0);
+  const agentTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (agent) {
+      // Agent joined — clear the timer
+      if (agentTimerRef.current) clearInterval(agentTimerRef.current);
+      setAgentWaitSec(0);
+      return;
+    }
+    // Start counting seconds waiting for the agent
+    agentTimerRef.current = setInterval(() => setAgentWaitSec((s) => s + 1), 1000);
+    return () => {
+      if (agentTimerRef.current) clearInterval(agentTimerRef.current);
+    };
+  }, [agent]);
 
   const agentSpeaking = state === "speaking";
   const yourTurn = state === "listening" && isMicrophoneEnabled;
   const agentLabel =
     ({ speaking: "Speaking", thinking: "Thinking", listening: "Listening" } as Record<string, string>)[
       state
-    ] ?? "Joining…";
+    ] ?? (agentWaitSec > 5 ? `Joining… (${agentWaitSec}s)` : "Joining…");
   const yourLabel = !isMicrophoneEnabled ? "Mic off" : yourTurn ? "Your turn" : "Mic on";
+
+  // Agent not responding banner: show after 30s with no agent participant
+  const agentTimedOut = !agent && agentWaitSec >= 30;
 
   const toggleMic = useCallback(() => {
     localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled).catch(() => {});
@@ -241,6 +264,19 @@ function InterviewVisualizerView({ attemptInfo }: { attemptInfo: AttemptPublicIn
         </span>
       </header>
 
+      {/* Agent not responding warning */}
+      {agentTimedOut && (
+        <div className="mx-4 mb-2 flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-900/30 px-4 py-3 text-sm text-amber-200">
+          <span className="mt-0.5 text-amber-400">⚠</span>
+          <div>
+            <p className="font-medium">AI Interviewer hasn&apos;t joined yet ({agentWaitSec}s)</p>
+            <p className="mt-0.5 text-amber-300/80">
+              The backend may be waking up from sleep. Please wait up to 60 seconds.
+              If it still doesn&apos;t join, end the interview and try again in 30 seconds.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-4">
         <div className="flex items-start justify-center gap-10 sm:gap-20">
           <Person active={agentSpeaking} name="AI Interviewer" sub={attemptInfo?.company_name} status={agentLabel}>
@@ -331,6 +367,26 @@ export default function InterviewRoomPage() {
     setStarting(true);
     setStartError(null);
     try {
+      // Pre-flight: ping /health/agent to warn if the agent worker is down.
+      // This is best-effort — we proceed even if this fetch fails.
+      try {
+        const API = process.env.NEXT_PUBLIC_API_URL ?? "";
+        const agentHealth = await fetch(`${API}/health/agent`, { signal: AbortSignal.timeout(5000) });
+        if (agentHealth.ok) {
+          const data = await agentHealth.json() as { agent_running: boolean; restart_count: number };
+          if (!data.agent_running) {
+            setStartError(
+              `The AI interviewer service is currently offline (restarts: ${data.restart_count}). ` +
+              "The backend may be waking up — please wait 30 seconds and try again."
+            );
+            setStarting(false);
+            return;
+          }
+        }
+      } catch {
+        // health check failed (network, timeout) — proceed anyway
+      }
+
       const authToken = await getToken();
       const res = await apiRequest<StartResponse>(
         `/api/attempts/${attemptId}/start`,
