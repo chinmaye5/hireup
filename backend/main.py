@@ -62,7 +62,12 @@ app = FastAPI(title="HireUp API", lifespan=lifespan)
 # Enable CORS for frontend origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(set(["http://localhost:3000", "http://127.0.0.1:3000", *FRONTEND_ORIGINS])),
+    allow_origins=list(set([
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://thehireup.vercel.app",  # Added your Vercel frontend URL
+        *FRONTEND_ORIGINS
+    ])),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
