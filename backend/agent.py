@@ -143,24 +143,26 @@ async def entrypoint(ctx: JobContext) -> None:
 
     # Step 5: Configure voice pipeline session
     #
-    # Tuning notes:
-    # - TTS: aura-2-athena-en = clear, professional voice at 48kHz
-    # - Endpointing: min 0.8s gives the candidate time to pause and continue;
-    #   max 5.0s accommodates thinking pauses on hard questions
-    # - min_consecutive_speech_delay: 1.2s gap between agent utterances
-    #   so acknowledgement and next question don't run together
+    # Tuning notes for Render Free Tier (0.1 vCPU, 512 MB RAM):
+    # - TTS: aura-2-athena-en default 24kHz opus – do NOT force 48kHz linear16;
+    #   that pushes 768 kbps of uncompressed PCM which saturates the CPU and
+    #   causes the first few words to arrive corrupted / broken.
+    # - Endpointing: 0.5s min is responsive but not hair-trigger; 4.0s max
+    #   gives candidates time to think on hard questions without the agent
+    #   cutting in. Lower values than 0.5s cause false endpoints under CPU load.
+    # - min_consecutive_speech_delay: keep low (0.8s) so Q+A transitions feel natural.
     session = AgentSession(
         vad=ctx.proc.userdata["vad"],
         stt=groq.STT(model="whisper-large-v3-turbo", language="en"),
         llm=groq.LLM(model=INTERVIEWER_LLM_MODEL),
         tts=deepgram.TTS(
-            model="aura-2-athena-en",    # Clearer, deeper voice for interviewer persona
-            sample_rate=48000,           # 48kHz for higher audio fidelity (default 24kHz)
-            encoding="linear16",         # Uncompressed PCM for best quality
+            model="aura-2-athena-en",  # Clear professional voice; uses default 24kHz opus
+            # No sample_rate / encoding overrides: default opus at 24kHz uses ~32 kbps
+            # instead of 768 kbps for linear16 @ 48kHz — critical on free-tier CPU
         ),
-        min_endpointing_delay=0.8,       # Wait 0.8s of silence before assuming candidate is done
-        max_endpointing_delay=5.0,       # Allow up to 5s thinking pauses on hard questions
-        min_consecutive_speech_delay=1.2, # 1.2s gap between agent utterances (natural pacing)
+        min_endpointing_delay=0.5,        # 0.5s of silence triggers end-of-turn
+        max_endpointing_delay=4.0,        # Allow up to 4s thinking pause
+        min_consecutive_speech_delay=0.8, # 0.8s gap between agent utterances
     )
 
     # State tracking variables
@@ -272,27 +274,31 @@ async def entrypoint(ctx: JobContext) -> None:
 
     time_limit_task = asyncio.create_task(enforce_time_limit())
 
-    # Step 7.5: Heartbeat task to detect stuck interviews
-    # This task runs every 30 seconds to ensure the interview is progressing
-    # If no new conversation items for 60 seconds, consider it stuck and shut down
+    # Step 7.5: Heartbeat task to detect truly abandoned interviews
+    # Runs every 60 seconds. On Render Free Tier (shared 0.1 vCPU), Silero VAD
+    # inference can lag 10-30s under CPU contention; we must give a generous
+    # inactivity window so we do NOT falsely shut down a live interview while
+    # the candidate is mid-answer and VAD is still catching up.
     async def heartbeat_monitor() -> None:
         nonlocal last_activity_time
         while not interview_completed:
             try:
-                await asyncio.sleep(30)  # Check every 30 seconds
+                await asyncio.sleep(60)  # Check every 60 seconds
                 current_time = asyncio.get_event_loop().time()
                 time_since_activity = current_time - last_activity_time
 
-                # If no activity for 60 seconds, log and potentially shut down
-                if time_since_activity > 60:
+                # Only consider the interview "abandoned" after 150 seconds of
+                # complete silence AND we've had at least one exchange.  150s
+                # is generous enough for a candidate thinking on a hard question
+                # even when the CPU is at 100%.
+                if time_since_activity > 150:
                     logger.warning(
-                        "No conversation activity for %.0f seconds. Interview may be stuck. "
+                        "No conversation activity for %.0f seconds. Treating as abandoned. "
                         "Answers: %d/%d",
                         time_since_activity, candidate_answer_count, total_questions
                     )
-                    # If we've had at least one exchange but then silence, end it
                     if candidate_answer_count > 0:
-                        logger.info("Ending interview due to inactivity.")
+                        logger.info("Ending interview due to prolonged inactivity.")
                         session.shutdown(drain=True)
                         break
             except asyncio.CancelledError:
@@ -365,14 +371,31 @@ async def entrypoint(ctx: JobContext) -> None:
 
     ctx.add_shutdown_callback(on_shutdown)
 
-    # Step 9: Start session
+    # Step 9: Connect to LiveKit room and wait for candidate participant
+    #
+    # CRITICAL: session.start() fires job_ctx.connect() as a background asyncio task,
+    # meaning it may not be complete when generate_reply() runs immediately after.
+    # If the candidate's audio track is not yet subscribed, Silero VAD never receives
+    # frames → the agent speaks Q1 but then sits deaf forever.
+    #
+    # Fix: explicitly await ctx.connect() THEN wait_for_participant() BEFORE starting
+    # the session. This ensures:
+    #   1. The WebRTC ICE/DTLS handshake is fully established
+    #   2. The candidate's audio track is visible and auto-subscribed
+    #   3. RoomIO can wire VAD input immediately when session.start() runs
+    await ctx.connect()
+    logger.info("Room connected for attempt %s. Waiting for candidate participant...", attempt_id_str)
+    await ctx.wait_for_participant()  # blocks until candidate's audio track is subscribed
+    logger.info("Candidate participant ready. Starting agent session.")
+
+    # Step 10: Start session (room already connected above)
     await session.start(
         room=ctx.room,
         agent=DynamicInterviewer(),
         room_options=room_io.RoomOptions(delete_room_on_close=True),
     )
 
-    # Step 10: Agent speaks first: Introduction + Question 1
+    # Step 11: Agent speaks first: Introduction + Question 1
     await session.generate_reply(
         instructions=(
             f"Welcome the candidate warmly. Introduce yourself as the AI interviewer from {company_name}. "
