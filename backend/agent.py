@@ -421,6 +421,7 @@ if __name__ == "__main__":
     # daemon thread (zero extra dependencies needed).
     # -------------------------------------------------------------------------
     import http.server
+    import os
     import threading
 
     _port = int(os.getenv("PORT", 0))
