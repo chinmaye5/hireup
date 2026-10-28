@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import { DesktopNav, MobileNav } from "@/components/NavLinks";
+import LandingNav from "@/components/landing/LandingNav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -78,6 +79,9 @@ export default function RootLayout({
                 <SignedIn>
                   <DesktopNav />
                 </SignedIn>
+                <SignedOut>
+                  <LandingNav />
+                </SignedOut>
               </div>
 
               <div className="flex items-center gap-3">

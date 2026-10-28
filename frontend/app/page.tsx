@@ -4,6 +4,15 @@ import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton, SignUpButton } from "@clerk/nextjs";
 import { PrismaHero, WordsPullUp } from "@/components/ui/prisma-hero";
 import { ArrowRight, FileText, Send, CheckCircle2 } from "lucide-react";
+import AtAGlance from "@/components/landing/AtAGlance";
+import ProductTour from "@/components/landing/ProductTour";
+import Features from "@/components/landing/Features";
+import UseCases from "@/components/landing/UseCases";
+import Comparison from "@/components/landing/Comparison";
+import Pricing from "@/components/landing/Pricing";
+import Faq from "@/components/landing/Faq";
+import FinalCta from "@/components/landing/FinalCta";
+import Footer from "@/components/landing/Footer";
 
 const btnPrimary =
   "inline-flex h-9 sm:h-10 items-center justify-center px-4 sm:px-5 text-[13px] font-medium bg-white text-neutral-950 hover:bg-neutral-200 transition-colors group cursor-pointer";
@@ -121,6 +130,16 @@ export default function HomePage() {
           </div>
         </div>
       </PrismaHero>
+
+      <AtAGlance />
+      <ProductTour />
+      <Features />
+      <UseCases />
+      <Comparison />
+      <Pricing />
+      <Faq />
+      <FinalCta />
+      <Footer />
     </div>
   );
 }
