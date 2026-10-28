@@ -25,7 +25,10 @@ Deployment note (Render free tier):
   with this API server.
 """
 
+import asyncio
 import logging
+import os
+import urllib.request
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -41,12 +44,44 @@ from routes.candidate_routes import router as candidate_router
 logger = logging.getLogger("hireup-main")
 logging.basicConfig(level=logging.INFO)
 
+# URL of the separate agent Render Web Service.
+# When set, FastAPI pings it every 4 minutes to prevent Render free tier
+# from spinning the agent down due to inactivity.
+# Set via env var: AGENT_URL=https://hireup-agent.onrender.com
+_AGENT_URL: str = os.getenv("AGENT_URL", "").rstrip("/")
+
+
+async def _keep_agent_alive() -> None:
+    """Pings the agent health endpoint every 4 minutes (Render sleeps after 15min)."""
+    loop = asyncio.get_event_loop()
+    while True:
+        await asyncio.sleep(4 * 60)  # every 4 minutes
+        try:
+            await loop.run_in_executor(
+                None,
+                lambda: urllib.request.urlopen(f"{_AGENT_URL}/health", timeout=10),
+            )
+            logger.debug("Keep-alive ping to agent succeeded.")
+        except Exception as exc:
+            logger.warning("Keep-alive ping to agent failed: %s", exc)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Connect to MongoDB Atlas and ensure collection indexes
     await init_db()
+
+    # Start keep-alive pinger if AGENT_URL is configured
+    _ping_task = None
+    if _AGENT_URL:
+        _ping_task = asyncio.create_task(_keep_agent_alive())
+        logger.info("Keep-alive pinger started for agent at %s", _AGENT_URL)
+
     yield
+
+    if _ping_task:
+        _ping_task.cancel()
+
     # Close MongoDB client connection pool on shutdown
     await close_db()
 

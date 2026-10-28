@@ -411,4 +411,37 @@ async def entrypoint(ctx: JobContext) -> None:
 
 
 if __name__ == "__main__":
+    # -------------------------------------------------------------------------
+    # Render Web Service compatibility: bind a tiny health-check HTTP server
+    # to $PORT before starting the agent worker.
+    #
+    # Render free-tier Web Services require the process to listen on $PORT
+    # within 60 seconds or the deploy is marked failed.  The livekit-agents
+    # CLI does not expose HTTP, so we start a minimal stdlib HTTP server in a
+    # daemon thread (zero extra dependencies needed).
+    # -------------------------------------------------------------------------
+    import http.server
+    import threading
+
+    _port = int(os.getenv("PORT", 0))
+    if _port > 0:
+        class _HealthHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                body = b'{"status": "agent-running"}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):  # suppress HTTP access logs
+                pass
+
+        _health_srv = http.server.HTTPServer(("0.0.0.0", _port), _HealthHandler)
+        threading.Thread(target=_health_srv.serve_forever, daemon=True).start()
+        logger.info(
+            "Health server ready on port %d (Render Web Service compatibility)",
+            _port,
+        )
+
     cli.run_app(server)
