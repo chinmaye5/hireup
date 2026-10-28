@@ -9,6 +9,9 @@ on:
       - '.github/workflows/deploy-livekit-agent.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,13 +19,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Determine Operation (create vs deploy)
+        id: op
+        run: |
+          if [ -f backend/livekit.toml ]; then
+            echo "operation=deploy" >> $GITHUB_OUTPUT
+            echo "livekit.toml already exists, deploying..."
+          else
+            echo "operation=create" >> $GITHUB_OUTPUT
+            echo "livekit.toml not found, creating agent..."
+          fi
+
       - name: Deploy LiveKit Cloud Agent
-        uses: livekit/deploy-action@v2
+        uses: livekit/deploy-action@v2.12.2
         env:
           LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
           LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
           LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SECRET_LIST: "MONGODB_URI=${{ secrets.MONGODB_URI }},MONGODB_DB_NAME=${{ secrets.MONGODB_DB_NAME }},GROQ_API_KEY=${{ secrets.GROQ_API_KEY }},DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }},INTERVIEWER_LLM_MODEL=${{ secrets.INTERVIEWER_LLM_MODEL }},SCORING_LLM_MODEL=${{ secrets.SCORING_LLM_MODEL }}"
         with:
-          OPERATION: deploy
+          OPERATION: ${{ steps.op.outputs.operation }}
           WORKING_DIRECTORY: 'backend'
+
+      - name: Commit livekit.toml if newly created
+        if: steps.op.outputs.operation == 'create'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backend/livekit.toml
+          git commit -m "chore: save livekit.toml from initial cloud agent creation [skip ci]" || echo "No changes to commit"
+          git push origin main || echo "Push skipped"
