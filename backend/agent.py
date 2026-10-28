@@ -30,6 +30,15 @@ Known limitation:
 TODO: A candidate who refreshes mid-call cannot rejoin; the recruiter uses "reset".
 """
 
+import os
+
+# Limit CPU / thread-pool allocations for C++ dependencies (ONNX Runtime, OpenMP, BLAS)
+# On multi-core host machines (e.g. Render), these default to host CPU count, spawning
+# dozens of threads that waste 100+ MB of RAM in thread stacks and buffers.
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+
 import asyncio
 import logging
 from typing import Any, Optional
@@ -67,20 +76,19 @@ logging.basicConfig(level=logging.INFO)
 
 
 # Low-memory worker settings tuned for Render Free Tier (512 MB RAM).
-# num_idle_processes=0: No idle process is kept pre-warmed. A new process is
-# forked only when a LiveKit job arrives. This saves ~150 MB of idle RAM that
-# would otherwise hold the Silero ONNX model and livekit-agents runtime.
-# The trade-off is ~1-2 s extra latency on the very first interview of the day
-# while the process forks and loads the VAD model.
+# job_executor_type=JobExecutorType.THREAD: Executes jobs within the SAME process
+# instead of spawning a separate OS subprocess (which was doubling Python + C++ runtime
+# memory to >500 MB and causing OOM restarts).
+# num_idle_processes=0: No idle thread is pre-warmed when no interview is active.
 server = AgentServer(
-    job_executor_type=JobExecutorType.PROCESS,
+    job_executor_type=JobExecutorType.THREAD,
     num_idle_processes=0,
     load_threshold=float("inf"),
 )
 
 
 def prewarm(proc: JobProcess) -> None:
-    """Preloads Silero VAD into process memory before the session starts."""
+    """Preloads Silero VAD into memory before the session starts."""
     proc.userdata["vad"] = silero.VAD.load(
         min_silence_duration=0.4,    # 0.4s quiet after speech to end a turn
         min_speech_duration=0.05,    # Ignore noise bursts shorter than 50ms
@@ -111,9 +119,12 @@ async def entrypoint(ctx: JobContext) -> None:
         return
 
     # Step 2: Create a DEDICATED AsyncMongoClient for this worker thread/loop
-    # The voice agent runs in a different thread/loop than FastAPI.
-    # Therefore, it must instantiate its own database connection rather than sharing the API client.
-    agent_mongo_client: AsyncMongoClient = AsyncMongoClient(MONGODB_URI)
+    # Low maxPoolSize prevents connection bloat in memory.
+    agent_mongo_client: AsyncMongoClient = AsyncMongoClient(
+        MONGODB_URI,
+        maxPoolSize=5,
+        minPoolSize=1,
+    )
     db = agent_mongo_client[MONGODB_DB_NAME]
 
     # Step 3: Fetch attempt document and verify status
@@ -156,14 +167,24 @@ async def entrypoint(ctx: JobContext) -> None:
     #   gives candidates time to think on hard questions without the agent
     #   cutting in. Lower values than 0.5s cause false endpoints under CPU load.
     # - min_consecutive_speech_delay: keep low (0.8s) so Q+A transitions feel natural.
+    vad_model = (
+        ctx.proc.userdata.get("vad")
+        if hasattr(ctx, "proc") and hasattr(ctx.proc, "userdata")
+        else None
+    )
+    if vad_model is None:
+        vad_model = silero.VAD.load(
+            min_silence_duration=0.4,
+            min_speech_duration=0.05,
+            activation_threshold=0.5,
+        )
+
     session = AgentSession(
-        vad=ctx.proc.userdata["vad"],
+        vad=vad_model,
         stt=groq.STT(model="whisper-large-v3-turbo", language="en"),
         llm=groq.LLM(model=INTERVIEWER_LLM_MODEL),
         tts=deepgram.TTS(
             model="aura-2-athena-en",  # Clear professional voice; uses default 24kHz opus
-            # No sample_rate / encoding overrides: default opus at 24kHz uses ~32 kbps
-            # instead of 768 kbps for linear16 @ 48kHz — critical on free-tier CPU
         ),
         min_endpointing_delay=0.5,        # 0.5s of silence triggers end-of-turn
         max_endpointing_delay=4.0,        # Allow up to 4s thinking pause
@@ -373,6 +394,8 @@ async def entrypoint(ctx: JobContext) -> None:
         finally:
             await agent_mongo_client.close()
             logger.info("Agent Mongo client closed.")
+            import gc
+            gc.collect()
 
     ctx.add_shutdown_callback(on_shutdown)
 

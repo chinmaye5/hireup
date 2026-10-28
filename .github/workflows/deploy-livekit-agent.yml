@@ -1,0 +1,28 @@
+name: Deploy LiveKit Cloud Agent
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-livekit-agent.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy LiveKit Cloud Agent
+        uses: livekit/deploy-action@v2
+        env:
+          LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+          LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+          LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+          SECRET_LIST: "MONGODB_URI=${{ secrets.MONGODB_URI }},MONGODB_DB_NAME=${{ secrets.MONGODB_DB_NAME }},GROQ_API_KEY=${{ secrets.GROQ_API_KEY }},DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }},INTERVIEWER_LLM_MODEL=${{ secrets.INTERVIEWER_LLM_MODEL }},SCORING_LLM_MODEL=${{ secrets.SCORING_LLM_MODEL }}"
+        with:
+          OPERATION: deploy
+          WORKING_DIRECTORY: 'backend'
