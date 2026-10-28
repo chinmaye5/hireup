@@ -204,6 +204,7 @@ async def find_attempts_for_interview_summary(
     attempts_list: list[dict[str, Any]] = []
     async for doc in cursor:
         attempts_list.append(doc)
+    return attempts_list
 
 
 async def find_all_attempts_for_company(

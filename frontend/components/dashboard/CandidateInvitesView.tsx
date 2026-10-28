@@ -145,13 +145,10 @@ export default function CandidateInvitesView({
                   {selectedInterviewDetail?.title || "Candidate Attempts"}
                 </h2>
               </div>
-              {selectedInterviewId && (
-                <Link
-                  href={`/dashboard/interviews/${selectedInterviewId}`}
-                  className="text-[12px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline transition-colors whitespace-nowrap"
-                >
-                  View Details &rarr;
-                </Link>
+              {selectedInterviewDetail && (
+                <span className="text-[11px] font-mono font-medium text-neutral-600 dark:text-neutral-400 tabular-nums px-2 py-0.5 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800">
+                  {selectedInterviewDetail.attempts.length} {selectedInterviewDetail.attempts.length === 1 ? "candidate" : "candidates"}
+                </span>
               )}
             </div>
 
