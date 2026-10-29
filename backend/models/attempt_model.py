@@ -413,6 +413,30 @@ async def revert_attempt_to_invited(
     await db["attempts"].update_one(filter_query, update_op)
 
 
+async def release_unanswered_attempt(
+    db: AsyncDatabase,
+    attempt_id: ObjectId,
+    candidate_clerk_id: str,
+) -> bool:
+    """
+    Puts an 'in_progress' attempt back to 'invited' ONLY IF nothing was recorded yet
+    (no transcript) and it belongs to this candidate. Used when the AI interviewer
+    never joined the room, so the candidate's single invite isn't burned.
+
+    Returns True if the attempt was released.
+    """
+    result = await db["attempts"].update_one(
+        {
+            "_id": attempt_id,
+            "status": STATUS_IN_PROGRESS,
+            "candidate_clerk_id": candidate_clerk_id,
+            "$or": [{"transcript": {"$exists": False}}, {"transcript": {"$size": 0}}],
+        },
+        {"$set": {"status": STATUS_INVITED, "started_at": None, "candidate_clerk_id": None}},
+    )
+    return result.modified_count == 1
+
+
 async def append_transcript_message(
     db: AsyncDatabase,
     attempt_id: ObjectId,

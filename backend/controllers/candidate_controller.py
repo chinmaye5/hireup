@@ -169,6 +169,27 @@ async def start_attempt(
     }
 
 
+async def release_attempt(
+    attempt_id_str: str,
+    current_user: dict[str, Any],
+    db: AsyncDatabase
+) -> dict[str, Any]:
+    """
+    Lets a candidate hand back an attempt whose interviewer never joined.
+    Only works while the attempt has no transcript, so a real interview can't be reset this way.
+    """
+    attempt_id = to_object_id(attempt_id_str)
+    if attempt_id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Interview not found")
+
+    released = await attempt_model.release_unanswered_attempt(
+        db=db,
+        attempt_id=attempt_id,
+        candidate_clerk_id=current_user["clerk_id"],
+    )
+    return {"released": released}
+
+
 async def get_attempt_public_info(
     attempt_id_str: str,
     db: AsyncDatabase

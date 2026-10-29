@@ -146,9 +146,8 @@ function StatusCard({
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-8 py-10 text-center">
       <div
-        className={`flex h-12 w-12 items-center justify-center rounded-full ${
-          tone === "success" ? "bg-neutral-950 text-white" : "bg-red-50 text-red-700"
-        }`}
+        className={`flex h-12 w-12 items-center justify-center rounded-full ${tone === "success" ? "bg-neutral-950 text-white" : "bg-red-50 text-red-700"
+          }`}
       >
         {tone === "success" ? <CheckIcon /> : <AlertIcon />}
       </div>
@@ -174,9 +173,8 @@ function Person({
   return (
     <div className="flex flex-col items-center gap-3">
       <div
-        className={`h-24 w-24 overflow-hidden rounded-full border-2 transition-all duration-300 sm:h-32 sm:w-32 ${
-          active ? "border-white shadow-[0_0_0_6px_rgba(255,255,255,0.12)]" : "border-white/20"
-        }`}
+        className={`h-24 w-24 overflow-hidden rounded-full border-2 transition-all duration-300 sm:h-32 sm:w-32 ${active ? "border-white shadow-[0_0_0_6px_rgba(255,255,255,0.12)]" : "border-white/20"
+          }`}
       >
         {children}
       </div>
@@ -204,7 +202,13 @@ function useWaveSize() {
   return size;
 }
 
-function InterviewVisualizerView({ attemptInfo }: { attemptInfo: AttemptPublicInfo | null }) {
+function InterviewVisualizerView({
+  attemptInfo,
+  onAgentJoined,
+}: {
+  attemptInfo: AttemptPublicInfo | null;
+  onAgentJoined: () => void;
+}) {
   // Agent side: state ("listening" | "thinking" | "speaking" | "connecting")
   const { state, agent } = useVoiceAssistant();
   const remoteParticipants = useRemoteParticipants();
@@ -222,6 +226,7 @@ function InterviewVisualizerView({ attemptInfo }: { attemptInfo: AttemptPublicIn
       // Agent joined — clear the timer
       if (agentTimerRef.current) clearInterval(agentTimerRef.current);
       setAgentWaitSec(0);
+      onAgentJoined();
       return;
     }
     // Start counting seconds waiting for the agent
@@ -229,21 +234,21 @@ function InterviewVisualizerView({ attemptInfo }: { attemptInfo: AttemptPublicIn
     return () => {
       if (agentTimerRef.current) clearInterval(agentTimerRef.current);
     };
-  }, [agent]);
+  }, [agent, onAgentJoined]);
 
   const agentSpeaking = state === "speaking";
   const yourTurn = state === "listening" && isMicrophoneEnabled;
   const agentLabel =
     ({ speaking: "Speaking", thinking: "Thinking", listening: "Listening" } as Record<string, string>)[
-      state
+    state
     ] ?? (agentWaitSec > 5 ? `Joining… (${agentWaitSec}s)` : "Joining…");
   const yourLabel = !isMicrophoneEnabled ? "Mic off" : yourTurn ? "Your turn" : "Mic on";
 
   // Agent not responding banner: show after 30s with no agent participant
-  const agentTimedOut = !agent && agentWaitSec >= 30;
+  const agentTimedOut = !agent && agentWaitSec >= 45;
 
   const toggleMic = useCallback(() => {
-    localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled).catch(() => {});
+    localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled).catch(() => { });
   }, [localParticipant, isMicrophoneEnabled]);
 
   // Disconnecting triggers LiveKitRoom's onDisconnected, which shows the "finished" screen.
@@ -269,11 +274,18 @@ function InterviewVisualizerView({ attemptInfo }: { attemptInfo: AttemptPublicIn
         <div className="mx-4 mb-2 flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-900/30 px-4 py-3 text-sm text-amber-200">
           <span className="mt-0.5 text-amber-400">⚠</span>
           <div>
-            <p className="font-medium">AI Interviewer hasn&apos;t joined yet ({agentWaitSec}s)</p>
+            <p className="font-medium">The AI interviewer hasn&apos;t joined ({agentWaitSec}s)</p>
             <p className="mt-0.5 text-amber-300/80">
-              The backend may be waking up from sleep. Please wait up to 60 seconds.
-              If it still doesn&apos;t join, end the interview and try again in 30 seconds.
+              This is a connection problem on our side, not yours, and your interview has not been used up.
+              Leave now and press Start again.
             </p>
+            <button
+              type="button"
+              onClick={endInterview}
+              className="mt-3 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-950 hover:bg-amber-100"
+            >
+              Leave and retry
+            </button>
           </div>
         </div>
       )}
@@ -305,11 +317,10 @@ function InterviewVisualizerView({ attemptInfo }: { attemptInfo: AttemptPublicIn
         <button
           type="button"
           onClick={toggleMic}
-          className={`${roomBtn} ${
-            isMicrophoneEnabled
+          className={`${roomBtn} ${isMicrophoneEnabled
               ? "bg-white/10 text-white hover:bg-white/20"
               : "bg-white text-neutral-950 hover:bg-neutral-200"
-          }`}
+            }`}
         >
           {isMicrophoneEnabled ? <MicIcon /> : <MicOffIcon />}
           {isMicrophoneEnabled ? "Mute" : "Unmute"}
@@ -336,6 +347,10 @@ export default function InterviewRoomPage() {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [isFinished, setIsFinished] = useState(false);
+  const agentJoinedRef = useRef(false);
+  const markAgentJoined = useCallback(() => {
+    agentJoinedRef.current = true;
+  }, []);
 
   // Fetch interview metadata publicly before auth
   useEffect(() => {
@@ -373,6 +388,7 @@ export default function InterviewRoomPage() {
         "POST",
         authToken
       );
+      agentJoinedRef.current = false;
       setConn(res);
     } catch (err: unknown) {
       setStartError(err instanceof Error ? err.message : "Failed to start interview");
@@ -381,10 +397,21 @@ export default function InterviewRoomPage() {
     }
   }
 
-  const handleDisconnect = useCallback(() => {
+  const handleDisconnect = useCallback(async () => {
     setConn(null);
-    setIsFinished(true);
-  }, []);
+    if (agentJoinedRef.current) {
+      setIsFinished(true);
+      return;
+    }
+    // The interviewer never joined: give the invite back so the candidate can retry.
+    try {
+      const authToken = await getToken();
+      await apiRequest(`/api/attempts/${attemptId}/release`, "POST", authToken);
+    } catch {
+      // Best effort. If this fails the recruiter can still reset the attempt.
+    }
+    setStartError("The AI interviewer didn’t join. Your interview wasn’t used. Please press Start again.");
+  }, [attemptId, getToken]);
 
   // Suppress harmless LiveKit DataChannel teardown errors that fire
   // every time a room closes (LOSSY, RELIABLE, DATA_TRACK_LOSSY channels).
@@ -571,7 +598,7 @@ export default function InterviewRoomPage() {
           data-lk-theme="default"
           className="flex h-full w-full"
         >
-          <InterviewVisualizerView attemptInfo={attemptInfo} />
+          <InterviewVisualizerView attemptInfo={attemptInfo} onAgentJoined={markAgentJoined} />
           {/* Required for browser to play agent audio */}
           <RoomAudioRenderer />
         </LiveKitRoom>

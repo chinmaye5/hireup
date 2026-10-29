@@ -64,3 +64,19 @@ async def start_attempt_route(
         db=db
     )
 
+
+@router.post("/attempts/{attempt_id}/release")
+async def release_attempt_route(
+    attempt_id: str,
+    current_user: dict[str, Any] = Depends(get_current_user),
+    db: AsyncDatabase = Depends(get_db)
+) -> dict[str, Any]:
+    """
+    Gives the invite back if the AI interviewer never joined (no transcript yet),
+    so the candidate can press Start again instead of being locked out.
+    """
+    return await candidate_controller.release_attempt(
+        attempt_id_str=attempt_id,
+        current_user=current_user,
+        db=db
+    )

@@ -58,6 +58,7 @@ from livekit.agents import (
 from livekit.plugins import deepgram, groq, silero
 
 from config.settings import (
+    validate_agent_env,
     MONGODB_URI,
     MONGODB_DB_NAME,
     INTERVIEWER_LLM_MODEL,
@@ -73,6 +74,9 @@ load_dotenv()
 
 logger = logging.getLogger("hireup-agent")
 logging.basicConfig(level=logging.INFO)
+
+# Fail fast with ONE clear message listing everything missing (visible in LiveKit Cloud logs).
+validate_agent_env()
 
 
 # Low-memory worker settings tuned for Render Free Tier (512 MB RAM).

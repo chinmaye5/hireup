@@ -13,16 +13,11 @@ Request Flow:
 - Services: External APIs (Clerk, LiveKit, Groq).
 - Lifespan: Manages MongoDB connection pool.
 
-Deployment note (Render free tier):
-  The LiveKit voice agent (agent.py) runs as a SEPARATE Render Background Worker,
-  NOT as a subprocess of this server.  This is intentional:
-    - Web service:        FastAPI alone  (~150 MB RAM)
-    - Background worker:  agent.py alone (~300-350 MB RAM)
-  Running both in one container exceeded the 512 MB free-tier limit and caused
-  OOM kills that silently killed the agent mid-interview.
-
-  The agent connects to LiveKit Cloud directly; it does not need to be co-located
-  with this API server.
+Deployment note:
+  Render free tier runs ONLY this FastAPI service (no audio/ML in this process).
+  The LiveKit voice agent (agent.py) is deployed to LiveKit Cloud Agents via
+  .github/workflows/deploy-livekit-agent.yml, so none of its RAM/CPU is used here.
+  Do NOT also run agent.py on Render, or both workers will compete for the same jobs.
 """
 
 import asyncio
@@ -33,7 +28,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from config.settings import FRONTEND_ORIGINS
+from config.settings import FRONTEND_ORIGINS, validate_api_env
 from config.db import init_db, close_db
 from routes.me_routes import router as me_router
 from routes.company_routes import router as company_router
@@ -68,6 +63,8 @@ async def _keep_agent_alive() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_api_env()
+
     # Connect to MongoDB Atlas and ensure collection indexes
     await init_db()
 

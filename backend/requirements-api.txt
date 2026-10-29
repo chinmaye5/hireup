@@ -1,0 +1,10 @@
+# Render (API only). No audio/ML packages: the voice agent runs on LiveKit Cloud.
+fastapi>=0.162.0
+uvicorn[standard]>=0.54.0
+clerk-backend-api>=7.0.0
+pymongo>=4.9
+groq>=1.7.0
+livekit-api>=1.2.2
+pydantic[email]>=2.14.1
+python-dotenv>=1.2.4
+email-validator>=2.0.0
